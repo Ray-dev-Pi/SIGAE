@@ -1081,25 +1081,33 @@ dialog::backdrop {
 @media (max-width: 860px) {
   body:not(.is-authenticated) {
     background:
-      linear-gradient(145deg, rgba(241, 198, 107, 0.12), transparent 36%),
-      linear-gradient(120deg, #11251f 0%, #143b34 55%, #183b4f 100%);
+      linear-gradient(160deg, rgba(241, 198, 107, 0.15), transparent 30%),
+      linear-gradient(24deg, rgba(44, 111, 187, 0.18), transparent 58%),
+      linear-gradient(180deg, #0f2a24 0%, #123b34 48%, #102d3e 100%);
   }
 
   .login-screen {
     align-content: start;
-    align-items: start;
-    gap: 16px;
+    align-items: stretch;
+    gap: 18px;
+    grid-template-columns: minmax(0, 460px);
+    justify-content: center;
     min-height: 100svh;
-    padding: max(14px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom));
+    padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
   }
 
   .login-visual {
-    gap: 18px;
+    gap: 14px;
+    justify-items: center;
     min-height: auto;
   }
 
   .login-brand {
+    align-items: center;
+    display: grid;
     gap: 12px;
+    justify-items: center;
+    text-align: center;
   }
 
   .login-brand::after {
@@ -1107,35 +1115,46 @@ dialog::backdrop {
   }
 
   .login-brand strong {
-    font-size: clamp(2.6rem, 17vw, 4.2rem);
+    font-size: clamp(2.8rem, 16vw, 4rem);
   }
 
   .login-tagline {
-    font-size: 0.92rem;
+    color: #f6d98f;
+    font-size: 0.9rem;
+    text-align: center;
   }
 
   .login-intro {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-left: 4px solid var(--accent-soft);
+    border-radius: 8px;
     gap: 8px;
-    padding-left: 14px;
+    max-width: 100%;
+    padding: 12px 14px;
   }
 
   .login-intro h1 {
-    font-size: clamp(1.45rem, 7vw, 2.2rem);
+    color: #ffffff;
+    font-size: clamp(1.4rem, 6vw, 2rem);
     line-height: 1.05;
-    max-width: 16ch;
+    max-width: 22ch;
   }
 
   .login-intro p {
+    color: rgba(248, 251, 249, 0.76);
     font-size: 0.92rem;
     line-height: 1.4;
   }
 
   .login-card {
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 20px 48px rgba(2, 14, 20, 0.3);
     gap: 16px;
     justify-self: stretch;
     margin-top: 0;
     max-width: none;
-    padding: 20px 16px;
+    padding: 22px 18px;
   }
 
   .login-card-header p {
@@ -1187,13 +1206,13 @@ dialog::backdrop {
 
 @media (max-width: 520px) {
   .login-screen {
-    gap: 12px;
-    padding-left: 10px;
-    padding-right: 10px;
+    gap: 11px;
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
   .login-visual {
-    gap: 10px;
+    gap: 9px;
   }
 
   .login-brand {
@@ -1215,9 +1234,13 @@ dialog::backdrop {
     margin-top: 4px;
   }
 
+  .login-intro {
+    padding: 10px 12px;
+  }
+
   .login-intro h1 {
-    font-size: clamp(1.24rem, 6vw, 1.65rem);
-    max-width: 18ch;
+    font-size: clamp(1.14rem, 5.8vw, 1.48rem);
+    max-width: 24ch;
   }
 
   .login-intro p {
@@ -1225,7 +1248,7 @@ dialog::backdrop {
   }
 
   .login-card-header h1 {
-    font-size: 1.65rem;
+    font-size: 1.55rem;
   }
 
   .login-card-header p {
@@ -1250,6 +1273,10 @@ dialog::backdrop {
     width: 34px;
   }
 
+  .forgot-password {
+    min-height: 38px;
+  }
+
   .workspace {
     padding: 12px;
   }
@@ -1264,6 +1291,23 @@ dialog::backdrop {
 
   .bar-line {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) and (max-height: 720px) {
+  .login-intro {
+    border-left-width: 3px;
+  }
+
+  .login-intro p,
+  .login-card-header p {
+    display: none;
+  }
+
+  .login-card {
+    gap: 14px;
+    padding-bottom: 18px;
+    padding-top: 18px;
   }
 }
 

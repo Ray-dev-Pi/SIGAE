@@ -228,26 +228,6 @@ button {
   gap: 17px;
 }
 
-.login-instructions {
-  background: rgba(241, 198, 107, 0.14);
-  border: 1px solid rgba(199, 138, 34, 0.22);
-  border-radius: 8px;
-  color: #4b5b55;
-  display: grid;
-  gap: 4px;
-  padding: 11px 13px;
-}
-
-.login-instructions strong {
-  color: var(--primary-strong);
-  font-size: 0.9rem;
-}
-
-.login-instructions span {
-  font-size: 0.88rem;
-  line-height: 1.35;
-}
-
 .login-form label {
   color: #465b55;
   display: grid;

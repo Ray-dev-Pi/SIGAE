@@ -44,7 +44,11 @@
           <p>Digite somente os números do CPF e informe sua senha de acesso.</p>
         </div>
 
-        <form class="login-form" id="loginForm">
+        <form class="login-form" id="loginForm" novalidate>
+          <div class="form-alert" id="formAlert" role="alert" hidden>
+            <span aria-hidden="true">!</span>
+            <p></p>
+          </div>
           <label>
             <span>CPF</span>
             <span class="input-shell">

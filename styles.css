@@ -228,6 +228,36 @@ button {
   gap: 17px;
 }
 
+.form-alert {
+  align-items: flex-start;
+  background: #fff4df;
+  border: 1px solid #f0c983;
+  border-radius: 8px;
+  color: #6f4a0b;
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.form-alert span {
+  align-items: center;
+  background: #d88917;
+  border-radius: 7px;
+  color: #ffffff;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-weight: 900;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.form-alert p {
+  font-size: 0.9rem;
+  line-height: 1.35;
+  margin: 2px 0 0;
+}
+
 .login-form label {
   color: #465b55;
   display: grid;

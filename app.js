@@ -112,6 +112,7 @@ const loginScreen = document.querySelector("#loginScreen");
 const appShell = document.querySelector("#appShell");
 const loginForm = document.querySelector("#loginForm");
 const loginFeedback = document.querySelector("#loginFeedback");
+const formAlert = document.querySelector("#formAlert");
 const rolePicker = document.querySelector("#rolePicker");
 const roleOptions = document.querySelector("#roleOptions");
 const profileSelect = document.querySelector("#profileSelect");
@@ -474,6 +475,16 @@ function showRolePicker(user) {
   loginFeedback.textContent = `${user.name}, encontramos mais de um cargo cadastrado para você.`;
 }
 
+function showFormAlert(message) {
+  formAlert.querySelector("p").textContent = message;
+  formAlert.hidden = false;
+}
+
+function hideFormAlert() {
+  formAlert.hidden = true;
+  formAlert.querySelector("p").textContent = "";
+}
+
 function configureProfileOptions(session) {
   const profiles = session.activeProfile === "Administrador"
     ? allProfiles
@@ -527,6 +538,11 @@ document.querySelector("#forgotPasswordButton").addEventListener("click", () => 
 
 document.querySelector("#loginCpf").addEventListener("input", (event) => {
   event.target.value = event.target.value.replace(/\D/g, "").slice(0, 11);
+  hideFormAlert();
+});
+
+document.querySelector("#loginPassword").addEventListener("input", () => {
+  hideFormAlert();
 });
 
 document.querySelector("#passwordToggle").addEventListener("click", () => {
@@ -542,13 +558,26 @@ document.querySelector("#passwordToggle").addEventListener("click", () => {
 
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+  hideFormAlert();
   loginFeedback.textContent = "Verificando cadastro...";
   rolePicker.hidden = true;
   const cpf = document.querySelector("#loginCpf").value.replace(/\D/g, "");
   const password = document.querySelector("#loginPassword").value;
   try {
+    if (!cpf) {
+      showFormAlert("Preencha o CPF para continuar.");
+      loginFeedback.textContent = "";
+      return;
+    }
     if (cpf.length !== 11) {
-      throw new Error("Informe um CPF com 11 números.");
+      showFormAlert("Informe um CPF com 11 números.");
+      loginFeedback.textContent = "";
+      return;
+    }
+    if (!password) {
+      showFormAlert("Preencha a senha para continuar.");
+      loginFeedback.textContent = "";
+      return;
     }
     const user = await authenticateUser(cpf, password);
     if (user.roles.length > 1) {
@@ -557,7 +586,8 @@ loginForm.addEventListener("submit", async (event) => {
     }
     completeLogin(user, user.roles[0]);
   } catch (error) {
-    loginFeedback.textContent = error.message || "Não foi possível entrar agora.";
+    showFormAlert(error.message || "Não foi possível entrar agora.");
+    loginFeedback.textContent = "";
   }
 });
 

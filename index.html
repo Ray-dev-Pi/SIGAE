@@ -2,7 +2,7 @@
 <html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>SIGAE - Sistema Integrado de Gestão Administrativa e Educacional</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -41,18 +41,44 @@
       <div class="login-card">
         <div class="login-card-header">
           <h1>Entrar</h1>
+          <p>Conta cadastrada com perfil definido pelos vínculos do usuário.</p>
         </div>
 
         <form class="login-form" id="loginForm">
           <label>
-            E-mail
-            <input id="loginEmail" type="email" autocomplete="email" required />
+            <span>E-mail</span>
+            <span class="input-shell">
+              <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M4.75 6.75h14.5v10.5H4.75z"></path>
+                <path d="m5.25 7.25 6.75 5 6.75-5"></path>
+              </svg>
+              <input id="loginEmail" type="email" autocomplete="email" required />
+            </span>
           </label>
           <label>
-            Senha
-            <input id="loginPassword" type="password" autocomplete="current-password" required />
+            <span>Senha</span>
+            <span class="input-shell">
+              <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <rect x="5.5" y="10.25" width="13" height="9" rx="2"></rect>
+                <path d="M8.25 10.25V8a3.75 3.75 0 0 1 7.5 0v2.25"></path>
+                <path d="M12 14.1v2.4"></path>
+              </svg>
+              <input id="loginPassword" type="password" autocomplete="current-password" required />
+              <button class="password-toggle" id="passwordToggle" type="button" aria-label="Mostrar senha" aria-pressed="false">
+                <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M3.5 12s3.2-5.25 8.5-5.25S20.5 12 20.5 12 17.3 17.25 12 17.25 3.5 12 3.5 12z"></path>
+                  <circle cx="12" cy="12" r="2.25"></circle>
+                </svg>
+                <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M3.5 12s3.2-5.25 8.5-5.25S20.5 12 20.5 12a14.4 14.4 0 0 1-2.9 3.1"></path>
+                  <path d="M5 5 19 19"></path>
+                  <path d="M9.9 9.9a2.25 2.25 0 0 0 3.18 3.18"></path>
+                </svg>
+              </button>
+            </span>
           </label>
           <button class="primary-action login-submit" type="submit">Entrar</button>
+          <button class="forgot-password" type="button" id="forgotPasswordButton">Recuperar senha</button>
           <p class="login-feedback" id="loginFeedback" role="status"></p>
         </form>
 

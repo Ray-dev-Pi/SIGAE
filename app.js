@@ -510,6 +510,21 @@ document.querySelector("#logoutButton").addEventListener("click", () => {
   showLogin("Sessão encerrada com segurança.");
 });
 
+document.querySelector("#forgotPasswordButton").addEventListener("click", () => {
+  loginFeedback.textContent = "Informe seu e-mail e solicite a recuperação à secretaria do sistema.";
+});
+
+document.querySelector("#passwordToggle").addEventListener("click", () => {
+  const passwordInput = document.querySelector("#loginPassword");
+  const toggle = document.querySelector("#passwordToggle");
+  const isVisible = passwordInput.type === "text";
+  passwordInput.type = isVisible ? "password" : "text";
+  toggle.classList.toggle("is-visible", !isVisible);
+  toggle.setAttribute("aria-pressed", String(!isVisible));
+  toggle.setAttribute("aria-label", isVisible ? "Mostrar senha" : "Ocultar senha");
+  passwordInput.focus();
+});
+
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   loginFeedback.textContent = "Verificando cadastro...";

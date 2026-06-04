@@ -282,149 +282,60 @@ button {
 }
 
 .sigae-logo {
-  background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.24), transparent),
-    linear-gradient(135deg, var(--accent-soft), #f7df9c);
-  border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 10px;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.18);
-  display: inline-block;
+  display: inline-flex;
   flex: 0 0 auto;
   height: 44px;
-  overflow: hidden;
-  position: relative;
   width: 44px;
 }
 
 .sigae-logo.large {
   animation: logoFloat 4.8s ease-in-out infinite;
   border-radius: 14px;
-  height: 76px;
-  width: 76px;
+  height: 78px;
+  width: 78px;
 }
 
-.sigae-logo::before {
-  background: linear-gradient(180deg, var(--primary), var(--primary-deep));
-  border-radius: 10px 10px 18px 18px;
-  bottom: 8px;
-  content: "";
-  height: 44%;
-  left: 16%;
-  position: absolute;
-  right: 16%;
+.sigae-logo svg {
+  display: block;
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.18));
+  height: 100%;
+  width: 100%;
 }
 
-.logo-book,
-.logo-book::after {
-  background: #ffffff;
-  border-radius: 4px 4px 8px 8px;
-  bottom: 11px;
-  content: "";
-  height: 18px;
-  position: absolute;
-  width: 14px;
+.logo-book-left,
+.logo-book-right {
+  fill: #ffffff;
+  stroke: rgba(9, 45, 39, 0.16);
+  stroke-width: 1;
 }
 
-.logo-book {
-  left: 11px;
-  transform: skewY(8deg);
+.logo-book-left {
+  transform-origin: 32px 38px;
 }
 
-.logo-book::after {
-  bottom: 0;
-  left: 12px;
-  transform: skewY(-16deg);
+.logo-book-right {
+  transform-origin: 32px 38px;
 }
 
-.logo-signal {
-  background: var(--primary-deep);
-  border-radius: 999px;
-  height: 7px;
-  left: 50%;
-  position: absolute;
-  top: 10px;
-  transform: translateX(-50%);
-  width: 7px;
+.logo-center,
+.logo-arc {
+  fill: none;
+  stroke: var(--primary-deep);
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.logo-signal::before,
-.logo-signal::after {
-  border: 2px solid var(--primary-deep);
-  border-bottom: 0;
-  border-left-color: transparent;
-  border-right-color: transparent;
-  border-radius: 999px 999px 0 0;
-  content: "";
-  left: 50%;
-  position: absolute;
-  top: -5px;
-  transform: translateX(-50%);
+.logo-center {
+  stroke-width: 2.3;
 }
 
-.logo-signal::before {
-  height: 15px;
-  width: 25px;
+.logo-arc {
+  stroke-width: 3.2;
 }
 
-.logo-signal::after {
-  height: 25px;
-  top: -10px;
-  width: 39px;
-}
-
-.logo-path {
-  background: var(--blue);
-  border-radius: 999px;
-  bottom: 9px;
-  height: 4px;
-  position: absolute;
-  right: 8px;
-  transform: rotate(-34deg);
-  transform-origin: right center;
-  width: 18px;
-}
-
-.sigae-logo.large::before {
-  bottom: 13px;
-}
-
-.sigae-logo.large .logo-book,
-.sigae-logo.large .logo-book::after {
-  bottom: 20px;
-  height: 28px;
-  width: 22px;
-}
-
-.sigae-logo.large .logo-book {
-  left: 19px;
-}
-
-.sigae-logo.large .logo-book::after {
-  left: 20px;
-}
-
-.sigae-logo.large .logo-signal {
-  height: 10px;
-  top: 16px;
-  width: 10px;
-}
-
-.sigae-logo.large .logo-signal::before {
-  height: 24px;
-  width: 42px;
-}
-
-.sigae-logo.large .logo-signal::after {
-  height: 38px;
-  top: -16px;
-  width: 62px;
-}
-
-.sigae-logo.large .logo-path {
-  bottom: 16px;
-  height: 6px;
-  right: 14px;
-  width: 30px;
+.logo-dot {
+  fill: var(--primary-deep);
 }
 
 .brand strong,
@@ -1086,25 +997,6 @@ dialog::backdrop {
     border-radius: 12px;
     height: 58px;
     width: 58px;
-  }
-
-  .sigae-logo.large .logo-book,
-  .sigae-logo.large .logo-book::after {
-    bottom: 15px;
-    height: 22px;
-    width: 17px;
-  }
-
-  .sigae-logo.large .logo-book {
-    left: 15px;
-  }
-
-  .sigae-logo.large .logo-book::after {
-    left: 16px;
-  }
-
-  .sigae-logo.large .logo-signal::after {
-    width: 48px;
   }
 
   .login-form input,

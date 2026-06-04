@@ -40,11 +40,15 @@
 
       <div class="login-card">
         <div class="login-card-header">
-          <h1>Entrar</h1>
+          <h1>Acesso ao sistema</h1>
           <p>Conta cadastrada com perfil definido pelos vínculos do usuário.</p>
         </div>
 
         <form class="login-form" id="loginForm">
+          <div class="login-instructions">
+            <strong>Instruções básicas</strong>
+            <span>Digite somente os números do CPF e informe sua senha de acesso.</span>
+          </div>
           <label>
             <span>CPF</span>
             <span class="input-shell">
@@ -79,7 +83,7 @@
               </button>
             </span>
           </label>
-          <button class="primary-action login-submit" type="submit">Entrar</button>
+          <button class="primary-action login-submit" type="submit">Acessar sistema</button>
           <button class="forgot-password" type="button" id="forgotPasswordButton">Recuperar senha</button>
           <p class="login-feedback" id="loginFeedback" role="status"></p>
         </form>

@@ -187,7 +187,7 @@ button {
 }
 
 .login-card-header h1 {
-  font-size: clamp(1.7rem, 7vw, 2.4rem);
+  font-size: clamp(1.6rem, 6vw, 2.25rem);
   line-height: 1;
   margin: 0;
   text-align: center;
@@ -226,6 +226,26 @@ button {
 .role-picker {
   display: grid;
   gap: 17px;
+}
+
+.login-instructions {
+  background: rgba(241, 198, 107, 0.14);
+  border: 1px solid rgba(199, 138, 34, 0.22);
+  border-radius: 8px;
+  color: #4b5b55;
+  display: grid;
+  gap: 4px;
+  padding: 11px 13px;
+}
+
+.login-instructions strong {
+  color: var(--primary-strong);
+  font-size: 0.9rem;
+}
+
+.login-instructions span {
+  font-size: 0.88rem;
+  line-height: 1.35;
 }
 
 .login-form label {
@@ -1163,7 +1183,7 @@ dialog::backdrop {
   }
 
   .login-card-header h1 {
-    font-size: 2rem;
+    font-size: 1.9rem;
   }
 
   .role-options {
@@ -1248,7 +1268,7 @@ dialog::backdrop {
   }
 
   .login-card-header h1 {
-    font-size: 1.55rem;
+    font-size: 1.5rem;
   }
 
   .login-card-header p {

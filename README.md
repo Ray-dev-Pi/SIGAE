@@ -18,7 +18,7 @@ python3 server.py
 
 Depois acesse `http://127.0.0.1:8000`.
 
-O acesso usa usuários cadastrados no backend local ou, em produção, no Supabase.
+O acesso usa CPF e senha de usuários cadastrados no backend local ou, em produção, no Supabase.
 
 ## Recursos implementados nesta versão
 

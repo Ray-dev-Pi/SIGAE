@@ -46,13 +46,15 @@
 
         <form class="login-form" id="loginForm">
           <label>
-            <span>E-mail</span>
+            <span>CPF</span>
             <span class="input-shell">
               <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M4.75 6.75h14.5v10.5H4.75z"></path>
-                <path d="m5.25 7.25 6.75 5 6.75-5"></path>
+                <rect x="4.75" y="5.5" width="14.5" height="13" rx="2"></rect>
+                <path d="M8.25 9.25h7.5"></path>
+                <path d="M8.25 12h7.5"></path>
+                <path d="M8.25 14.75h4.5"></path>
               </svg>
-              <input id="loginEmail" type="email" autocomplete="email" required />
+              <input id="loginCpf" type="text" inputmode="numeric" autocomplete="username" pattern="[0-9]*" maxlength="11" required />
             </span>
           </label>
           <label>

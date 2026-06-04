@@ -36,21 +36,25 @@ def verify_password(password, stored):
 
 def init_db():
     seed_users = [
-        ("Administrador SIGAE", "admin@sigae.local", "Administrador"),
-        ("Helena Duarte", "diretor@sigae.local", "Diretor"),
-        ("Rafael Martins", "multi@sigae.local", "Professor,Gestor municipal"),
-        ("Clara Nascimento", "professor@sigae.local", "Professor"),
+        ("Administrador SIGAE", "admin@sigae.local", "00000000000", "Administrador"),
+        ("Helena Duarte", "diretor@sigae.local", "11111111111", "Diretor"),
+        ("Rafael Martins", "multi@sigae.local", "22222222222", "Professor,Gestor municipal"),
+        ("Clara Nascimento", "professor@sigae.local", "33333333333", "Professor"),
     ]
     with connect() as conn:
         conn.executescript(SCHEMA_PATH.read_text())
-        for name, email, role in seed_users:
+        columns = [row["name"] for row in conn.execute("PRAGMA table_info(users)").fetchall()]
+        if "cpf" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN cpf TEXT")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_cpf ON users(cpf)")
+        for name, email, cpf, role in seed_users:
             conn.execute(
                 """
-                INSERT INTO users (name, email, role, password_hash)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(email) DO UPDATE SET name = excluded.name, role = excluded.role
+                INSERT INTO users (name, email, cpf, role, password_hash)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(email) DO UPDATE SET name = excluded.name, cpf = excluded.cpf, role = excluded.role
                 """,
-                (name, email, role, hash_password("sigae123")),
+                (name, email, cpf, role, hash_password("sigae123")),
             )
         if conn.execute("SELECT COUNT(*) FROM schools").fetchone()[0] == 0:
             conn.executemany(
@@ -123,13 +127,13 @@ class SigaeHandler(SimpleHTTPRequestHandler):
         path = urlparse(self.path).path
         payload = self.read_json()
         if path == "/api/login":
-            email = payload.get("email", "")
+            cpf = "".join(char for char in payload.get("cpf", "") if char.isdigit())
             password = payload.get("password", "")
             with connect() as conn:
-                user = conn.execute("SELECT name, email, role, password_hash FROM users WHERE email = ?", (email,)).fetchone()
+                user = conn.execute("SELECT name, email, cpf, role, password_hash FROM users WHERE cpf = ?", (cpf,)).fetchone()
             if user and verify_password(password, user["password_hash"]):
                 roles = [role.strip() for role in user["role"].split(",") if role.strip()]
-                self.send_json({"name": user["name"], "email": user["email"], "role": roles[0], "roles": roles})
+                self.send_json({"name": user["name"], "email": user["email"], "cpf": user["cpf"], "role": roles[0], "roles": roles})
             else:
                 self.send_json({"error": "Credenciais inválidas"}, 401)
             return

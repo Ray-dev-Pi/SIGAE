@@ -403,15 +403,22 @@ function normalizeUser(user) {
   return {
     name: user.name,
     email: user.email,
+    cpf: user.cpf,
     roles,
     school: user.school || "Rede municipal",
   };
 }
 
-async function authenticateUser(email, password) {
+async function authenticateUser(cpf, password) {
   if (supabaseConfig.url && supabaseConfig.anonKey && window.supabase) {
     const client = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey);
-    const result = await client.auth.signInWithPassword({ email, password });
+    const userResponse = await client
+      .from(supabaseConfig.tables.users)
+      .select("id, nome, email, cpf")
+      .eq("cpf", cpf)
+      .single();
+    if (userResponse.error) throw new Error("CPF não encontrado.");
+    const result = await client.auth.signInWithPassword({ email: userResponse.data.email, password });
     if (result.error) throw new Error(result.error.message);
     const roleResponse = await client
       .from(supabaseConfig.tables.roles)
@@ -419,8 +426,9 @@ async function authenticateUser(email, password) {
       .eq("usuario_id", result.data.user.id);
     if (roleResponse.error) throw new Error(roleResponse.error.message);
     return normalizeUser({
-      name: result.data.user.user_metadata?.name || result.data.user.email,
-      email: result.data.user.email,
+      name: userResponse.data.nome || result.data.user.user_metadata?.name || userResponse.data.email,
+      email: userResponse.data.email,
+      cpf: userResponse.data.cpf,
       roles: roleResponse.data.map((item) => item.cargo),
       school: roleResponse.data[0]?.escola,
     });
@@ -430,7 +438,7 @@ async function authenticateUser(email, password) {
     const response = await fetch("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ cpf, password }),
     });
     if (response.ok) {
       return normalizeUser(await response.json());
@@ -511,7 +519,11 @@ document.querySelector("#logoutButton").addEventListener("click", () => {
 });
 
 document.querySelector("#forgotPasswordButton").addEventListener("click", () => {
-  loginFeedback.textContent = "Informe seu e-mail e solicite a recuperação à secretaria do sistema.";
+  loginFeedback.textContent = "Informe seu CPF e solicite a recuperação à secretaria do sistema.";
+});
+
+document.querySelector("#loginCpf").addEventListener("input", (event) => {
+  event.target.value = event.target.value.replace(/\D/g, "").slice(0, 11);
 });
 
 document.querySelector("#passwordToggle").addEventListener("click", () => {
@@ -529,10 +541,13 @@ loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   loginFeedback.textContent = "Verificando cadastro...";
   rolePicker.hidden = true;
-  const email = document.querySelector("#loginEmail").value.trim();
+  const cpf = document.querySelector("#loginCpf").value.replace(/\D/g, "");
   const password = document.querySelector("#loginPassword").value;
   try {
-    const user = await authenticateUser(email, password);
+    if (cpf.length !== 11) {
+      throw new Error("Informe um CPF com 11 números.");
+    }
+    const user = await authenticateUser(cpf, password);
     if (user.roles.length > 1) {
       showRolePicker(user);
       return;

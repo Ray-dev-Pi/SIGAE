@@ -131,11 +131,13 @@ class SigaeHandler(SimpleHTTPRequestHandler):
             password = payload.get("password", "")
             with connect() as conn:
                 user = conn.execute("SELECT name, email, cpf, role, password_hash FROM users WHERE cpf = ?", (cpf,)).fetchone()
-            if user and verify_password(password, user["password_hash"]):
+            if not user:
+                self.send_json({"error": "CPF não cadastrado."}, 404)
+            elif verify_password(password, user["password_hash"]):
                 roles = [role.strip() for role in user["role"].split(",") if role.strip()]
                 self.send_json({"name": user["name"], "email": user["email"], "cpf": user["cpf"], "role": roles[0], "roles": roles})
             else:
-                self.send_json({"error": "Credenciais inválidas"}, 401)
+                self.send_json({"error": "Senha incorreta para o CPF informado."}, 401)
             return
         if path == "/api/records":
             required = ["type", "name", "school", "status"]

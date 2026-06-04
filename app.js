@@ -419,7 +419,7 @@ async function authenticateUser(cpf, password) {
       .single();
     if (userResponse.error) throw new Error("CPF não encontrado.");
     const result = await client.auth.signInWithPassword({ email: userResponse.data.email, password });
-    if (result.error) throw new Error(result.error.message);
+    if (result.error) throw new Error("Senha incorreta para o CPF informado.");
     const roleResponse = await client
       .from(supabaseConfig.tables.roles)
       .select("cargo, escola")
@@ -443,8 +443,11 @@ async function authenticateUser(cpf, password) {
     if (response.ok) {
       return normalizeUser(await response.json());
     }
+    const errorPayload = await response.json().catch(() => ({}));
+    throw new Error(errorPayload.error || "CPF ou senha incorretos.");
   } catch (error) {
     apiAvailable = false;
+    if (error.message) throw error;
   }
 
   throw new Error("Não foi possível validar o acesso. Verifique a API ou a conexão com o Supabase.");

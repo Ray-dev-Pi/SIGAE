@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SIGAE - Sistema Integrado de Gestão Administrativa e Educacional</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <section class="login-screen" id="loginScreen">
+      <div class="login-visual" aria-hidden="true">
+        <div class="login-brand">
+          <span class="brand-mark large">S</span>
+          <div>
+            <strong>SIGAE</strong>
+            <small>Sistema Integrado de Gestão Administrativa e Educacional</small>
+          </div>
+        </div>
+        <div class="login-orbit">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <div class="login-panel-preview">
+          <div class="preview-line wide"></div>
+          <div class="preview-grid">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="preview-chart">
+            <i style="height: 72%"></i>
+            <i style="height: 48%"></i>
+            <i style="height: 88%"></i>
+            <i style="height: 63%"></i>
+          </div>
+        </div>
+      </div>
+
+      <div class="login-card">
+        <div class="login-card-header">
+          <p class="eyebrow">Acesso seguro</p>
+          <h1>Entrar no SIGAE</h1>
+          <p>Informe seu e-mail e senha. O sistema identifica seus cargos cadastrados e abre o perfil correto automaticamente.</p>
+        </div>
+
+        <form class="login-form" id="loginForm">
+          <label>
+            E-mail institucional
+            <input id="loginEmail" type="email" autocomplete="email" required placeholder="nome@municipio.gov.br" />
+          </label>
+          <label>
+            Senha
+            <input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Digite sua senha" />
+          </label>
+          <button class="primary-action login-submit" type="submit">Entrar</button>
+          <p class="login-feedback" id="loginFeedback" role="status"></p>
+        </form>
+
+        <div class="role-picker" id="rolePicker" hidden>
+          <div>
+            <p class="eyebrow">Escolha de acesso</p>
+            <h2>Como deseja entrar?</h2>
+          </div>
+          <div class="role-options" id="roleOptions"></div>
+        </div>
+
+        <div class="demo-users">
+          <strong>Usuários de teste</strong>
+          <span>diretor@sigae.local / sigae123</span>
+          <span>multi@sigae.local / sigae123</span>
+          <span>professor@sigae.local / sigae123</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="app-shell" id="appShell" hidden>
+      <aside class="sidebar" id="sidebar">
+        <div class="brand">
+          <span class="brand-mark">S</span>
+          <div>
+            <strong>SIGAE</strong>
+            <small>Gestão educacional municipal</small>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Módulos do SIGAE">
+          <button class="nav-item active" data-view="dashboard">Painel executivo</button>
+          <button class="nav-item" data-view="administrativo">Administrativo</button>
+          <button class="nav-item" data-view="pedagogico">Pedagógico</button>
+          <button class="nav-item" data-view="secretaria">Secretaria escolar</button>
+          <button class="nav-item" data-view="portais">Portais</button>
+          <button class="nav-item" data-view="ava">AVA</button>
+          <button class="nav-item" data-view="censo">Censo escolar</button>
+          <button class="nav-item" data-view="comunicacao">Comunicação</button>
+          <button class="nav-item" data-view="relatorios">Relatórios e BI</button>
+          <button class="nav-item" data-view="seguranca">Segurança e LGPD</button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <span class="status-dot"></span>
+          <span>Disponibilidade projetada: 99,5%</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <button class="icon-button menu-button" id="menuButton" aria-label="Abrir menu">☰</button>
+          <div class="search-wrap">
+            <span aria-hidden="true">⌕</span>
+            <input id="globalSearch" type="search" placeholder="Buscar aluno, escola, relatório ou módulo" />
+          </div>
+          <div class="profile-switcher">
+            <label for="profileSelect">Perfil</label>
+            <select id="profileSelect">
+              <option>Gestor municipal</option>
+              <option>Diretor</option>
+              <option>Secretaria escolar</option>
+              <option>Professor</option>
+              <option>Aluno</option>
+              <option>Responsável</option>
+              <option>Administrador</option>
+            </select>
+          </div>
+          <button class="primary-action" id="newRecordButton">Novo registro</button>
+          <button class="secondary-action" id="logoutButton">Sair</button>
+        </header>
+
+        <section class="hero-panel">
+          <div>
+            <p class="eyebrow">Sistema Integrado de Gestão Administrativa e Educacional</p>
+            <h1 id="viewTitle">Painel executivo da rede municipal</h1>
+            <p id="viewSubtitle">Indicadores consolidados para acompanhar escolas, matrículas, frequência, rendimento e comunicação em tempo real.</p>
+          </div>
+          <div class="hero-metrics" aria-label="Resumo do ambiente">
+            <span><strong>24h</strong>Acesso em nuvem</span>
+            <span><strong>1.000+</strong>Usuários simultâneos</span>
+            <span><strong>10.000+</strong>Alunos suportados</span>
+          </div>
+        </section>
+
+        <section class="content-grid">
+          <div class="main-column" id="mainColumn"></div>
+          <aside class="side-column">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Operação</p>
+                  <h2>Alertas prioritários</h2>
+                </div>
+              </div>
+              <div class="timeline" id="alertsList"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Auditoria</p>
+                  <h2>Atividades recentes</h2>
+                </div>
+              </div>
+              <div class="activity-list" id="activityList"></div>
+            </section>
+          </aside>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="recordDialog">
+      <form method="dialog" class="dialog-card" id="recordForm">
+        <div class="panel-header">
+          <div>
+            <p class="eyebrow">Cadastro rápido</p>
+            <h2>Novo registro SIGAE</h2>
+          </div>
+          <button class="icon-button" value="cancel" aria-label="Fechar">×</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            Tipo
+            <select id="recordType">
+              <option>Aluno</option>
+              <option>Professor</option>
+              <option>Escola</option>
+              <option>Turma</option>
+              <option>Comunicado</option>
+            </select>
+          </label>
+          <label>
+            Nome ou título
+            <input id="recordName" required placeholder="Ex.: Maria Oliveira" />
+          </label>
+          <label>
+            Escola
+            <select id="recordSchool">
+              <option>EMEF Paulo Freire</option>
+              <option>EMEI Ana Neri</option>
+              <option>EMEF Darcy Ribeiro</option>
+              <option>CMEI Esperança</option>
+            </select>
+          </label>
+          <label>
+            Situação
+            <select id="recordStatus">
+              <option>Ativo</option>
+              <option>Em análise</option>
+              <option>Pendente</option>
+            </select>
+          </label>
+        </div>
+        <div class="dialog-actions">
+          <button value="cancel" class="secondary-action">Cancelar</button>
+          <button value="default" class="primary-action">Salvar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>

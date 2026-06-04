@@ -18,21 +18,12 @@ python3 server.py
 
 Depois acesse `http://127.0.0.1:8000`.
 
-Usuários iniciais da API e da tela estática:
-
-- E-mail: `admin@sigae.local`
-- Senha: `sigae123`
-- E-mail: `diretor@sigae.local`
-- Senha: `sigae123`
-- E-mail: `multi@sigae.local`
-- Senha: `sigae123`
-- E-mail: `professor@sigae.local`
-- Senha: `sigae123`
+O acesso usa usuários cadastrados no backend local ou, em produção, no Supabase.
 
 ## Recursos implementados nesta versão
 
 - Layout responsivo para computador, tablet e smartphone.
-- Tela de login responsiva, estilizada e animada.
+- Tela de login institucional, responsiva e sem exposição de dados operacionais.
 - Identificação automática por cargo cadastrado.
 - Escolha de perfil quando o usuário possui mais de um cargo.
 - Navegação por módulos respeitando o perfil ativo.

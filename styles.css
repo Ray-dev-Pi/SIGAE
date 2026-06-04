@@ -30,8 +30,8 @@ body {
 
 body:not(.is-authenticated) {
   background:
-    linear-gradient(135deg, rgba(8, 28, 24, 0.96), rgba(18, 60, 52, 0.98) 52%, #f4f8f5 52%),
-    linear-gradient(90deg, rgba(241, 198, 107, 0.18), rgba(44, 111, 187, 0.14));
+    linear-gradient(135deg, rgba(8, 28, 24, 0.96), rgba(18, 60, 52, 0.98)),
+    #0d211d;
 }
 
 button,
@@ -52,31 +52,29 @@ button {
 .login-screen {
   align-items: center;
   display: grid;
-  gap: clamp(22px, 5vw, 64px);
-  grid-template-columns: minmax(340px, 1fr) minmax(350px, 470px);
+  gap: clamp(28px, 7vw, 96px);
+  grid-template-columns: minmax(320px, 0.95fr) minmax(340px, 440px);
   min-height: 100vh;
-  overflow: hidden;
+  overflow: auto;
   padding: clamp(18px, 5vw, 64px);
   position: relative;
 }
 
 .login-screen::before {
-  animation: sweep 10s ease-in-out infinite alternate;
-  background: linear-gradient(110deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  background:
+    linear-gradient(135deg, transparent 0 54%, rgba(255, 255, 255, 0.05) 54% 100%),
+    linear-gradient(90deg, rgba(241, 198, 107, 0.12), rgba(44, 111, 187, 0.08));
   content: "";
-  height: 140%;
-  left: -40%;
+  inset: 0;
+  pointer-events: none;
   position: absolute;
-  top: -20%;
-  transform: rotate(8deg);
-  width: 44%;
 }
 
 .login-visual {
   color: #ffffff;
   display: grid;
   gap: 34px;
-  min-height: 560px;
+  min-height: auto;
   position: relative;
   z-index: 1;
 }
@@ -117,139 +115,27 @@ button {
   width: min(44vw, 520px);
 }
 
-.login-orbit {
-  animation: floatCard 5s ease-in-out infinite;
+.login-copy {
+  animation: fadeUp 760ms 80ms ease both;
+  border-left: 4px solid var(--accent-soft);
+  color: rgba(255, 255, 255, 0.82);
   display: grid;
-  gap: 12px;
-  left: clamp(0px, 4vw, 72px);
-  position: relative;
-  top: 28px;
-  width: min(360px, 72%);
+  gap: 8px;
+  margin-top: clamp(26px, 8vw, 92px);
+  max-width: 520px;
+  padding-left: 18px;
 }
 
-.login-orbit span {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 8px;
-  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.15);
-  color: rgba(255, 255, 255, 0.88);
-  display: block;
-  min-height: 58px;
-  padding: 12px 14px;
-  position: relative;
-  width: 100%;
-}
-
-.login-orbit span::before {
+.login-copy p {
   color: #ffffff;
-  display: block;
-  font-size: 1.25rem;
-  font-weight: 900;
-}
-
-.login-orbit span::after {
-  color: rgba(255, 255, 255, 0.68);
-  display: block;
-  font-size: 0.8rem;
-  font-weight: 700;
-  margin-top: 2px;
-  text-transform: uppercase;
-}
-
-.login-orbit span:nth-child(1) {
-  transform: translateX(0);
-}
-
-.login-orbit span:nth-child(1)::before {
-  content: "3.420";
-}
-
-.login-orbit span:nth-child(1)::after {
-  content: "alunos integrados";
-}
-
-.login-orbit span:nth-child(2) {
-  transform: translateX(34px);
-}
-
-.login-orbit span:nth-child(2)::before {
-  content: "92%";
-}
-
-.login-orbit span:nth-child(2)::after {
-  content: "frequência média";
-}
-
-.login-orbit span:nth-child(3) {
-  transform: translateX(68px);
-}
-
-.login-orbit span:nth-child(3)::before {
-  content: "100+";
-}
-
-.login-orbit span:nth-child(3)::after {
-  content: "relatórios gerenciais";
-}
-
-.login-panel-preview {
-  animation: fadeUp 800ms 120ms ease both;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 8px;
-  bottom: 12px;
-  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.24);
-  display: grid;
-  gap: 18px;
-  max-width: 540px;
-  padding: 22px;
-  position: absolute;
-  right: 0;
-  width: min(88%, 540px);
-}
-
-.login-panel-preview::before {
-  color: rgba(255, 255, 255, 0.78);
-  content: "Rede municipal em tempo real";
-  font-size: 0.78rem;
+  font-size: clamp(1.35rem, 3vw, 2.2rem);
   font-weight: 800;
-  text-transform: uppercase;
+  line-height: 1.1;
+  margin: 0;
 }
 
-.preview-line,
-.preview-grid span {
-  background: rgba(255, 255, 255, 0.32);
-  border-radius: 999px;
-  display: block;
-  height: 12px;
-}
-
-.preview-line.wide {
-  width: 72%;
-}
-
-.preview-grid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.preview-grid span {
-  height: 54px;
-}
-
-.preview-chart {
-  align-items: end;
-  display: flex;
-  gap: 12px;
-  height: 130px;
-}
-
-.preview-chart i {
-  animation: growBar 900ms ease both;
-  background: linear-gradient(180deg, #f1c66b, #83d3c2);
-  border-radius: 8px 8px 0 0;
-  flex: 1;
+.login-copy span {
+  font-size: 1rem;
 }
 
 .login-card {
@@ -260,8 +146,10 @@ button {
   box-shadow: 0 28px 80px rgba(8, 28, 23, 0.24);
   display: grid;
   gap: 22px;
+  justify-self: end;
   padding: clamp(22px, 4vw, 36px);
   position: relative;
+  width: 100%;
   z-index: 1;
 }
 
@@ -375,20 +263,6 @@ button {
 .role-option span {
   color: var(--muted);
   font-size: 0.9rem;
-}
-
-.demo-users {
-  background: var(--surface-soft);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  color: var(--muted);
-  display: grid;
-  gap: 6px;
-  padding: 13px 14px;
-}
-
-.demo-users strong {
-  color: var(--ink);
 }
 
 .app-shell {
@@ -1091,14 +965,11 @@ dialog::backdrop {
 @media (max-width: 1180px) {
   .login-screen {
     grid-template-columns: 1fr;
+    gap: 28px;
   }
 
   .login-visual {
-    min-height: 360px;
-  }
-
-  .login-orbit {
-    width: min(420px, 76%);
+    max-width: 720px;
   }
 
   .app-shell {
@@ -1135,19 +1006,19 @@ dialog::backdrop {
 
 @media (max-width: 860px) {
   body:not(.is-authenticated) {
-    background: linear-gradient(180deg, #0d211d 0 36%, #f4f8f5 36% 100%);
+    background: linear-gradient(180deg, #0d211d 0 44%, #f4f8f5 44% 100%);
   }
 
   .login-screen {
     align-items: start;
-    gap: 12px;
+    gap: 18px;
     min-height: 100svh;
     padding: 14px;
   }
 
   .login-visual {
     gap: 16px;
-    min-height: 214px;
+    min-height: auto;
   }
 
   .login-brand {
@@ -1168,33 +1039,13 @@ dialog::backdrop {
     max-width: 300px;
   }
 
-  .login-orbit {
-    display: none;
-  }
-
-  .login-panel-preview {
-    bottom: 6px;
-    gap: 10px;
-    left: 0;
-    padding: 14px;
-    right: auto;
-    width: 100%;
-  }
-
-  .login-panel-preview::before {
-    font-size: 0.7rem;
-  }
-
-  .preview-grid span {
-    height: 38px;
-  }
-
-  .preview-chart {
-    height: 74px;
+  .login-copy {
+    margin-top: 12px;
   }
 
   .login-card {
     gap: 16px;
+    justify-self: stretch;
     padding: 22px 18px;
   }
 
@@ -1246,7 +1097,7 @@ dialog::backdrop {
   }
 
   .login-visual {
-    min-height: 184px;
+    gap: 12px;
   }
 
   .sigae-logo.large {
@@ -1275,7 +1126,7 @@ dialog::backdrop {
   }
 
   .login-card-header p:last-child,
-  .demo-users {
+  .login-copy span {
     font-size: 0.88rem;
   }
 

@@ -28,37 +28,6 @@ const supabaseConfig = {
   },
 };
 
-const demoUsers = [
-  {
-    name: "Helena Duarte",
-    email: "diretor@sigae.local",
-    password: "sigae123",
-    roles: ["Diretor"],
-    school: "EMEF Paulo Freire",
-  },
-  {
-    name: "Rafael Martins",
-    email: "multi@sigae.local",
-    password: "sigae123",
-    roles: ["Professor", "Gestor municipal"],
-    school: "EMEF Darcy Ribeiro",
-  },
-  {
-    name: "Clara Nascimento",
-    email: "professor@sigae.local",
-    password: "sigae123",
-    roles: ["Professor"],
-    school: "EMEI Ana Neri",
-  },
-  {
-    name: "Administrador SIGAE",
-    email: "admin@sigae.local",
-    password: "sigae123",
-    roles: ["Administrador"],
-    school: "Rede municipal",
-  },
-];
-
 const alerts = [
   ["Frequência crítica", "38 alunos abaixo de 75% exigem busca ativa."],
   ["Censo Escolar", "12 inconsistências aguardam conferência prévia."],
@@ -470,9 +439,7 @@ async function authenticateUser(email, password) {
     apiAvailable = false;
   }
 
-  const demoUser = demoUsers.find((user) => user.email.toLowerCase() === email.toLowerCase() && user.password === password);
-  if (!demoUser) throw new Error("E-mail ou senha não encontrados.");
-  return normalizeUser(demoUser);
+  throw new Error("Não foi possível validar o acesso. Verifique a API ou a conexão com o Supabase.");
 }
 
 function showLogin(message = "") {

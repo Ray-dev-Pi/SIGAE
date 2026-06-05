@@ -675,6 +675,26 @@ textarea {
   padding: 0 14px;
 }
 
+.table-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.danger-action {
+  border-color: #f0b6b6;
+  color: #9f2424;
+}
+
+.danger-action:hover,
+.danger-action:focus-visible {
+  background: #fff1f1;
+  border-color: #d94747;
+  color: #7f1717;
+  outline: 0;
+}
+
 .hero-panel {
   background:
     linear-gradient(120deg, rgba(11, 107, 87, 0.95), rgba(26, 74, 96, 0.92)),

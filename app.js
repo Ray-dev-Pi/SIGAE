@@ -340,7 +340,7 @@ function renderSuperAdmin() {
         </div>
       ` : ""}
       <table class="data-table invite-table">
-        <thead><tr><th>Cargo</th><th>Destinatário</th><th>Status</th><th>Validade</th><th>Link</th></tr></thead>
+        <thead><tr><th>Cargo</th><th>Destinatário</th><th>Status</th><th>Validade</th><th>Ações</th></tr></thead>
         <tbody>
           ${registrationInvites.length ? registrationInvites.map((invite) => `
             <tr>
@@ -348,7 +348,12 @@ function renderSuperAdmin() {
               <td>${invite.targetName || invite.targetEmail || "-"}</td>
               <td>${badge(invite.status === "pendente" ? "Pendente" : invite.status === "utilizado" ? "Ativo" : "Inativa")}</td>
               <td>${invite.expiresAt ? new Date(invite.expiresAt).toLocaleDateString("pt-BR") : "-"}</td>
-              <td><button class="table-action copy-invite-link" data-link="${invite.link || inviteLink(invite.token)}" type="button">Copiar</button></td>
+              <td>
+                <div class="table-actions">
+                  <button class="table-action copy-invite-link" data-link="${invite.link || inviteLink(invite.token)}" type="button">Copiar</button>
+                  <button class="table-action danger-action delete-invite-token" data-token="${invite.token}" type="button">Apagar</button>
+                </div>
+              </td>
             </tr>
           `).join("") : `<tr><td colspan="5">Nenhum convite emitido ainda.</td></tr>`}
         </tbody>
@@ -662,6 +667,27 @@ function bindSuperAdminActions() {
     });
   });
 
+  document.querySelectorAll(".delete-invite-token").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const token = button.dataset.token || "";
+      if (!token || !window.confirm("Apagar este token de cadastro?")) return;
+      button.disabled = true;
+      button.textContent = "Apagando...";
+      try {
+        await deleteInvite(token);
+        if (lastInviteLink.includes(token)) {
+          lastInviteLink = "";
+        }
+        lastInviteError = "";
+        await hydrateInvites();
+      } catch (error) {
+        lastInviteError = error.message || "Não foi possível apagar o token.";
+      } finally {
+        setView("superadmin");
+      }
+    });
+  });
+
   document.querySelectorAll(".school-status-toggle").forEach((button) => {
     button.addEventListener("click", async () => {
       if (!cloudStorageAvailable || !button.dataset.schoolId) {
@@ -912,6 +938,14 @@ async function createInvite(role, form) {
   lastInviteError = "";
   registrationInvites = [invite, ...registrationInvites];
   return invite;
+}
+
+async function deleteInvite(token) {
+  ensureSupabaseClient();
+  if (!supabaseClient) throw new Error("Supabase indisponível para apagar o token.");
+  const response = await supabaseClient.rpc("apagar_convite_cadastro", { convite_token: token });
+  if (response.error) throw new Error(response.error.message);
+  if (response.data === false) throw new Error("Token não encontrado no banco de dados.");
 }
 
 async function hydrateInvites() {

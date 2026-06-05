@@ -641,15 +641,19 @@ async function authenticateUser(cpf, password) {
     }
     const roleResponse = await client
       .from(supabaseConfig.tables.roles)
-      .select("cargo, escola")
+      .select("cargo, escolas(nome)")
       .eq("usuario_id", loginUser.id);
     if (roleResponse.error) throw new Error(roleResponse.error.message);
+    const roleRows = Array.isArray(roleResponse.data) ? roleResponse.data : [];
+    const roles = [...new Set(roleRows.map((item) => item.cargo).filter(Boolean))];
+    const school = roleRows.find((item) => item.escolas?.nome)?.escolas.nome;
+    if (!roles.length) throw new Error("Usuário autenticado, mas sem cargo ativo cadastrado.");
     return normalizeUser({
       name: loginUser.nome || result.data.user.user_metadata?.name || loginUser.email,
       email: loginUser.email,
       cpf: loginUser.cpf,
-      roles: roleResponse.data.map((item) => item.cargo),
-      school: roleResponse.data[0]?.escola,
+      roles,
+      school,
     });
   }
 

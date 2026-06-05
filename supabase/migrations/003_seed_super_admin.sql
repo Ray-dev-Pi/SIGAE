@@ -133,10 +133,12 @@ begin
       email = excluded.email,
       ativo = true;
 
+  delete from public.usuarios_cargos
+  where usuario_id in (select id from public.usuarios where cpf = '05574671360')
+    and cargo = 'super_admin'::public.perfil_usuario;
+
   insert into public.usuarios_cargos (usuario_id, cargo, ativo)
   select id, 'super_admin'::public.perfil_usuario, true
   from public.usuarios
-  where cpf = '05574671360'
-  on conflict (usuario_id, municipio_id, escola_id, cargo) do update
-  set ativo = true;
+  where cpf = '05574671360';
 end $$;

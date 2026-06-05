@@ -311,6 +311,13 @@ function renderSuperAdmin() {
           <label>E-mail institucional<input name="targetEmail" type="email" placeholder="secretaria@municipio.gov.br" /></label>
           <button class="primary-action" type="submit">Gerar link da Secretaria</button>
         </form>
+        <form class="admin-form" id="schoolSecretaryInviteForm">
+          <h3>Secretaria escolar</h3>
+          <p class="form-help">Gere um link para secretária escolar cadastrar seu acesso e operar a vida escolar.</p>
+          <label>Nome do destinatário<input name="targetName" placeholder="Ex.: Ana Pereira" /></label>
+          <label>E-mail institucional<input name="targetEmail" type="email" placeholder="secretaria@escola.gov.br" /></label>
+          <button class="primary-action" type="submit">Gerar link da Secretária escolar</button>
+        </form>
         <form class="admin-form" id="directorInviteForm">
           <h3>Diretor escolar</h3>
           <p class="form-help">Gere um link para diretor cadastrar seu acesso e operar escolas, professores e alunos.</p>
@@ -612,6 +619,12 @@ function saveAdminState() {
 }
 
 function bindSuperAdminActions() {
+  const inviteButtonLabel = (role) => ({
+    gestor_municipal: "Gerar link da Secretaria",
+    secretaria_escolar: "Gerar link da Secretária escolar",
+    diretor: "Gerar link do Diretor",
+  })[role] || "Gerar link";
+
   const bindInviteForm = (selector, role) => {
     document.querySelector(selector)?.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -628,13 +641,14 @@ function bindSuperAdminActions() {
         lastInviteError = error.message || "Não foi possível gerar o convite.";
       } finally {
         button.disabled = false;
-        button.textContent = role === "gestor_municipal" ? "Gerar link da Secretaria" : "Gerar link do Diretor";
+        button.textContent = inviteButtonLabel(role);
         setView("superadmin");
       }
     });
   };
 
   bindInviteForm("#educationInviteForm", "gestor_municipal");
+  bindInviteForm("#schoolSecretaryInviteForm", "secretaria_escolar");
   bindInviteForm("#directorInviteForm", "diretor");
 
   document.querySelector("#copyInviteLinkButton")?.addEventListener("click", async () => {
@@ -873,28 +887,26 @@ async function createInvite(role, form) {
   ensureSupabaseClient();
   if (!supabaseClient) throw new Error("Não foi possível gerar convite: API ou Supabase indisponível.");
   const token = generateToken();
-  const insertResponse = await supabaseClient
-    .from("cadastro_convites")
-    .insert({
-      token,
-      cargo: role,
-      nome_destinatario: targetName || null,
-      email_destinatario: targetEmail || null,
-    })
-    .select("id, token, cargo, nome_destinatario, email_destinatario, status, expira_em, criado_em")
-    .single();
+  const insertResponse = await supabaseClient.rpc("criar_convite_cadastro", {
+    convite_token: token,
+    convite_cargo: role,
+    convite_nome_destinatario: targetName || null,
+    convite_email_destinatario: targetEmail || null,
+  });
   if (insertResponse.error) throw new Error(insertResponse.error.message);
+  const createdInvite = Array.isArray(insertResponse.data) ? insertResponse.data[0] : insertResponse.data;
+  if (!createdInvite?.token) throw new Error("Convite não retornado pelo banco de dados.");
   const invite = {
-    id: insertResponse.data.id,
-    token,
-    link: inviteLink(token),
-    role,
+    id: createdInvite.id,
+    token: createdInvite.token,
+    link: inviteLink(createdInvite.token),
+    role: createdInvite.cargo || role,
     roleLabel: roleLabel(role),
     targetName,
     targetEmail,
-    status: insertResponse.data.status,
-    expiresAt: insertResponse.data.expira_em,
-    createdAt: insertResponse.data.criado_em,
+    status: createdInvite.status,
+    expiresAt: createdInvite.expira_em,
+    createdAt: createdInvite.criado_em,
   };
   lastInviteLink = invite.link;
   lastInviteError = "";

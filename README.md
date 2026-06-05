@@ -36,11 +36,11 @@ O acesso usa CPF e senha de usuários cadastrados no backend local ou, em produ�
 - Senhas protegidas com PBKDF2 e salt por usuário.
 - Área lateral com alertas, auditoria e status operacional.
 - Preparação para Supabase em `supabase.example.js`, com tabelas previstas para usuários, cargos, matrículas, notas e frequências.
+- Migration PostgreSQL/Supabase em `supabase/migrations/001_initial_sigae_schema.sql`.
 
 ## Próximos passos técnicos
 
-- Criar o projeto Supabase e copiar `supabase.example.js` para `supabase.js` com URL e chave pública real.
-- Criar as tabelas `usuarios`, `usuarios_cargos`, `matriculas`, `notas` e `frequencias`.
+- Criar o projeto Supabase, executar a migration em `supabase/migrations` e copiar `supabase.example.js` para `supabase.js` com URL e chave pública real.
 - Ativar políticas RLS no Supabase por município, escola e perfil.
 - Implementar exportação real em PDF, Excel e layouts oficiais do Censo Escolar.
 - Adicionar testes automatizados e pipeline de implantação em nuvem.

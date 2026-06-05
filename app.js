@@ -1146,6 +1146,7 @@ async function completeInviteRegistration(payload) {
   }
 
   ensureSupabaseClient();
+  if (!supabaseClient) throw new Error("Supabase indisponível para concluir o cadastro.");
   const signup = await supabaseClient.auth.signUp({
     email: payload.email,
     password: payload.password,
@@ -1261,6 +1262,46 @@ document.querySelector("#invitePasswordToggle").addEventListener("click", () => 
   toggle.setAttribute("aria-pressed", String(!isVisible));
   toggle.setAttribute("aria-label", isVisible ? "Mostrar senha" : "Ocultar senha");
   passwordInput.focus();
+});
+
+document.querySelector("#inviteCpf").addEventListener("input", (event) => {
+  event.target.value = event.target.value.replace(/\D/g, "").slice(0, 11);
+  hideInviteAlert();
+});
+
+inviteForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  hideInviteAlert();
+  const button = inviteForm.querySelector("button[type='submit']");
+  const payload = {
+    token: activeInviteToken,
+    name: document.querySelector("#inviteName").value.trim(),
+    email: document.querySelector("#inviteEmail").value.trim().toLowerCase(),
+    cpf: document.querySelector("#inviteCpf").value.replace(/\D/g, "").slice(0, 11),
+    password: document.querySelector("#invitePassword").value,
+  };
+  try {
+    if (!payload.name || !payload.email || payload.cpf.length !== 11 || payload.password.length < 6) {
+      throw new Error("Preencha nome, e-mail, CPF com 11 números e senha com pelo menos 6 caracteres.");
+    }
+    button.disabled = true;
+    button.textContent = "Concluindo...";
+    inviteFeedback.textContent = "Criando seu acesso...";
+    await completeInviteRegistration(payload);
+    inviteForm.reset();
+    showLogin("Cadastro concluído. Entre com seu CPF e a senha criada.");
+    document.querySelector("#loginCpf").value = payload.cpf;
+  } catch (error) {
+    showInviteAlert(error.message || "Não foi possível concluir o cadastro.");
+    inviteFeedback.textContent = "";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Concluir cadastro";
+  }
+});
+
+document.querySelector("#backToLoginButton").addEventListener("click", () => {
+  showLogin();
 });
 
 loginForm.addEventListener("submit", async (event) => {

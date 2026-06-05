@@ -154,7 +154,25 @@
           </label>
           <label>
             <span>Senha</span>
-            <input id="invitePassword" type="password" autocomplete="new-password" minlength="6" required />
+            <span class="input-shell">
+              <svg class="field-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <rect x="5.5" y="10.25" width="13" height="9" rx="2"></rect>
+                <path d="M8.25 10.25V8a3.75 3.75 0 0 1 7.5 0v2.25"></path>
+                <path d="M12 14.1v2.4"></path>
+              </svg>
+              <input id="invitePassword" type="password" autocomplete="new-password" minlength="6" required />
+              <button class="password-toggle" id="invitePasswordToggle" type="button" aria-label="Mostrar senha" aria-pressed="false">
+                <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M3.5 12s3.2-5.25 8.5-5.25S20.5 12 20.5 12 17.3 17.25 12 17.25 3.5 12 3.5 12z"></path>
+                  <circle cx="12" cy="12" r="2.25"></circle>
+                </svg>
+                <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path d="M3.5 12s3.2-5.25 8.5-5.25S20.5 12 20.5 12a14.4 14.4 0 0 1-2.9 3.1"></path>
+                  <path d="M5 5 19 19"></path>
+                  <path d="M9.9 9.9a2.25 2.25 0 0 0 3.18 3.18"></path>
+                </svg>
+              </button>
+            </span>
           </label>
           <button class="primary-action login-submit" type="submit">Concluir cadastro</button>
           <button class="forgot-password" type="button" id="backToLoginButton">Voltar ao login</button>
@@ -326,6 +344,6 @@
       window.SIGAE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoYXlwd2ZhcG5heG5sbnZkaGZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1Nzg5MjIsImV4cCI6MjA5NjE1NDkyMn0.msMwCVz51fPY72pOsXmdoPOAiESPR5oLBNaVVGKJ98U";
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js?v=20260605-01"></script>
+    <script src="app.js?v=20260605-02"></script>
   </body>
 </html>

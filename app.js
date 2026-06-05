@@ -1205,6 +1205,17 @@ document.querySelector("#passwordToggle").addEventListener("click", () => {
   passwordInput.focus();
 });
 
+document.querySelector("#invitePasswordToggle").addEventListener("click", () => {
+  const passwordInput = document.querySelector("#invitePassword");
+  const toggle = document.querySelector("#invitePasswordToggle");
+  const isVisible = passwordInput.type === "text";
+  passwordInput.type = isVisible ? "password" : "text";
+  toggle.classList.toggle("is-visible", !isVisible);
+  toggle.setAttribute("aria-pressed", String(!isVisible));
+  toggle.setAttribute("aria-label", isVisible ? "Mostrar senha" : "Ocultar senha");
+  passwordInput.focus();
+});
+
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   hideFormAlert();

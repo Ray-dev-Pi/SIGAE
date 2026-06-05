@@ -17,6 +17,16 @@ let schoolUsers = [];
 let apiAvailable = false;
 let cloudStorageAvailable = false;
 let pendingLoginUser = null;
+let supabaseClient = null;
+let globalStats = {
+  cities: 0,
+  schools: schools.length,
+  activeSchools: schools.filter((school) => school.active !== false).length,
+  students: schools.reduce((total, school) => total + Number(school.students || 0), 0),
+  enrollments: 0,
+  teachers: schools.reduce((total, school) => total + Number(school.teachers || 0), 0),
+  users: 0,
+};
 
 const supabaseConfig = {
   url: window.SIGAE_SUPABASE_URL || "",
@@ -240,20 +250,21 @@ function renderSchoolTable() {
 }
 
 function renderSuperAdmin() {
-  const activeCount = schools.filter((school) => school.active !== false).length;
-  const inactiveCount = schools.length - activeCount;
+  const activeCount = globalStats.activeSchools || schools.filter((school) => school.active !== false).length;
+  const totalSchools = globalStats.schools || schools.length;
+  const inactiveCount = Math.max(totalSchools - activeCount, 0);
   return `
     ${cloudStorageAvailable ? "" : `
       <section class="panel admin-cloud-warning">
         <strong>Supabase/PostgreSQL não conectado</strong>
-        <span>Inicie o servidor com a variável DATABASE_URL para salvar escolas e usuários na nuvem.</span>
+        <span>O perfil Super Admin é global. Conecte o Supabase ou inicie o servidor com DATABASE_URL para carregar todos os municípios, escolas e indicadores da rede.</span>
       </section>
     `}
     <section class="kpi-grid">
-      <article class="kpi-card"><span>Escolas cadastradas</span><strong>${schools.length}</strong><small class="trend">${activeCount} ativas</small></article>
-      <article class="kpi-card"><span>Escolas inativas</span><strong>${inactiveCount}</strong><small class="trend">Controle administrativo</small></article>
-      <article class="kpi-card"><span>Diretores</span><strong>${schoolUsers.filter((user) => user.role === "Diretor").length}</strong><small class="trend">Vinculados a escolas</small></article>
-      <article class="kpi-card"><span>Secretárias</span><strong>${schoolUsers.filter((user) => user.role === "Secretaria escolar").length}</strong><small class="trend">Perfis operacionais</small></article>
+      <article class="kpi-card"><span>Cidades atendidas</span><strong>${globalStats.cities || "-"}</strong><small class="trend">Acesso global por município</small></article>
+      <article class="kpi-card"><span>Escolas cadastradas</span><strong>${totalSchools}</strong><small class="trend">${activeCount} ativas e ${inactiveCount} inativas</small></article>
+      <article class="kpi-card"><span>Alunos na rede</span><strong>${(globalStats.students || 0).toLocaleString("pt-BR")}</strong><small class="trend">${(globalStats.enrollments || 0).toLocaleString("pt-BR")} matrículas</small></article>
+      <article class="kpi-card"><span>Usuários e equipes</span><strong>${(globalStats.users || schoolUsers.length).toLocaleString("pt-BR")}</strong><small class="trend">${(globalStats.teachers || 0).toLocaleString("pt-BR")} professores</small></article>
     </section>
 
     <section class="panel">
@@ -612,6 +623,93 @@ function isLocalHost() {
   return ["localhost", "127.0.0.1", ""].includes(window.location.hostname);
 }
 
+function ensureSupabaseClient() {
+  if (!supabaseClient && supabaseConfig.url && supabaseConfig.anonKey && window.supabase?.createClient) {
+    supabaseClient = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey);
+  }
+  return supabaseClient;
+}
+
+function mapSupabaseSchool(row) {
+  const endereco = row.endereco || {};
+  return {
+    id: row.id,
+    name: row.nome,
+    inep: row.codigo_inep || "",
+    city: endereco.regiao || endereco.bairro || "",
+    stages: Array.isArray(row.etapas) ? row.etapas.join(", ") : "",
+    students: 0,
+    teachers: 0,
+    attendance: 0,
+    approval: 0,
+    status: row.ativa === false ? "Inativa" : "Regular",
+    active: row.ativa !== false,
+  };
+}
+
+async function countSupabaseRows(table) {
+  if (!supabaseClient) return 0;
+  const response = await supabaseClient
+    .from(table)
+    .select("id", { count: "exact", head: true });
+  if (response.error) return 0;
+  return response.count || 0;
+}
+
+async function hydrateAdminFromSupabase() {
+  if (!supabaseClient) return;
+  const [
+    cities,
+    studentsCount,
+    enrollmentsCount,
+    teachersCount,
+    usersCount,
+    schoolsResponse,
+    schoolUsersResponse,
+  ] = await Promise.all([
+    countSupabaseRows("municipios"),
+    countSupabaseRows("alunos"),
+    countSupabaseRows("matriculas"),
+    countSupabaseRows("professores"),
+    countSupabaseRows("usuarios"),
+    supabaseClient
+      .from("escolas")
+      .select("id, nome, codigo_inep, endereco, etapas, ativa")
+      .order("nome", { ascending: true }),
+    supabaseClient
+      .from("usuarios_cargos")
+      .select("cargo, ativo, usuarios(nome, cpf, ativo), escolas(nome)")
+      .in("cargo", ["diretor", "secretaria_escolar"])
+      .eq("ativo", true),
+  ]);
+
+  if (!schoolsResponse.error && Array.isArray(schoolsResponse.data)) {
+    schools = schoolsResponse.data.map(mapSupabaseSchool);
+  }
+
+  if (!schoolUsersResponse.error && Array.isArray(schoolUsersResponse.data)) {
+    schoolUsers = schoolUsersResponse.data.map((row) => ({
+      name: row.usuarios?.nome || "",
+      cpf: row.usuarios?.cpf || "",
+      role: row.cargo === "diretor" ? "Diretor" : "Secretaria escolar",
+      school: row.escolas?.nome || "Sem escola vinculada",
+      active: row.usuarios?.ativo !== false,
+    })).filter((user) => user.name);
+  }
+
+  const activeSchools = schools.filter((school) => school.active !== false).length;
+  globalStats = {
+    cities,
+    schools: schools.length,
+    activeSchools,
+    students: studentsCount || schools.reduce((total, school) => total + Number(school.students || 0), 0),
+    enrollments: enrollmentsCount,
+    teachers: teachersCount || schools.reduce((total, school) => total + Number(school.teachers || 0), 0),
+    users: usersCount || schoolUsers.length,
+  };
+  cloudStorageAvailable = true;
+}
+
 async function authenticateUser(cpf, password) {
   const hasSupabaseConfig = Boolean(supabaseConfig.url && supabaseConfig.anonKey);
   const hasSupabaseSdk = Boolean(window.supabase?.createClient);
@@ -623,13 +721,13 @@ async function authenticateUser(cpf, password) {
   }
 
   if (hasSupabaseConfig && hasSupabaseSdk) {
-    const client = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey);
-    const userResponse = await client.rpc("login_usuario_por_cpf", { login_cpf: cpf });
+    ensureSupabaseClient();
+    const userResponse = await supabaseClient.rpc("login_usuario_por_cpf", { login_cpf: cpf });
     if (userResponse.error) throw new Error(userResponse.error.message || "CPF não encontrado.");
     const loginUser = Array.isArray(userResponse.data) ? userResponse.data[0] : userResponse.data;
     if (!loginUser?.email) throw new Error("CPF não encontrado.");
 
-    const result = await client.auth.signInWithPassword({ email: loginUser.email, password });
+    const result = await supabaseClient.auth.signInWithPassword({ email: loginUser.email, password });
     if (result.error) {
       console.error("Erro no Supabase Auth:", result.error);
       if (["invalid_credentials", "email_not_confirmed"].includes(result.error.code)) {
@@ -639,14 +737,24 @@ async function authenticateUser(cpf, password) {
       }
       throw new Error(`Falha no Supabase Auth: ${result.error.message}`);
     }
-    const roleResponse = await client
+    const roleResponse = await supabaseClient
       .from(supabaseConfig.tables.roles)
-      .select("cargo, escolas(nome)")
-      .eq("usuario_id", loginUser.id);
+      .select("cargo, municipio_id, escola_id")
+      .eq("usuario_id", loginUser.id)
+      .eq("ativo", true);
     if (roleResponse.error) throw new Error(roleResponse.error.message);
     const roleRows = Array.isArray(roleResponse.data) ? roleResponse.data : [];
     const roles = [...new Set(roleRows.map((item) => item.cargo).filter(Boolean))];
-    const school = roleRows.find((item) => item.escolas?.nome)?.escolas.nome;
+    const schoolRole = roleRows.find((item) => item.escola_id);
+    let school = "";
+    if (schoolRole) {
+      const schoolResponse = await supabaseClient
+        .from("escolas")
+        .select("nome")
+        .eq("id", schoolRole.escola_id)
+        .maybeSingle();
+      school = schoolResponse.data?.nome || "";
+    }
     if (!roles.length) throw new Error("Usuário autenticado, mas sem cargo ativo cadastrado.");
     return normalizeUser({
       name: loginUser.nome || result.data.user.user_metadata?.name || loginUser.email,
@@ -726,6 +834,16 @@ function completeLogin(user, selectedRole) {
     profileSelect.value = profile;
   }
   setView(profileToView[profile] || "dashboard");
+  ensureSupabaseClient();
+  if (profile === "Super Admin" && supabaseClient) {
+    hydrateAdminFromSupabase()
+      .then(() => {
+        if (!appShell.hidden && profileSelect.value === "Super Admin") {
+          setView("superadmin");
+        }
+      })
+      .catch(() => {});
+  }
 }
 
 function renderSidebars() {
@@ -871,9 +989,10 @@ profileSelect.addEventListener("change", (event) => {
 
 async function hydrateAdminFromApi() {
   try {
-    const [schoolsResponse, usersResponse] = await Promise.all([
+    const [schoolsResponse, usersResponse, statsResponse] = await Promise.all([
       fetch("/api/schools"),
       fetch("/api/school-users"),
+      fetch("/api/global-stats"),
     ]);
     if (!schoolsResponse.ok || !usersResponse.ok) {
       cloudStorageAvailable = false;
@@ -881,6 +1000,9 @@ async function hydrateAdminFromApi() {
     }
     schools = await schoolsResponse.json();
     schoolUsers = await usersResponse.json();
+    if (statsResponse.ok) {
+      globalStats = await statsResponse.json();
+    }
     cloudStorageAvailable = true;
   } catch (error) {
     cloudStorageAvailable = false;

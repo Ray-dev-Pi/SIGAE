@@ -144,6 +144,13 @@ def map_school_user(row):
     }
 
 
+def pg_count(conn, table):
+    try:
+        return conn.execute(f"SELECT COUNT(*) AS total FROM public.{table}").fetchone()["total"]
+    except Exception:
+        return 0
+
+
 class SigaeHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -200,6 +207,33 @@ class SigaeHandler(SimpleHTTPRequestHandler):
                     """
                 ).fetchall()
             self.send_json([map_school_user(row) for row in rows])
+            return
+        if path == "/api/global-stats":
+            if not cloud_enabled():
+                local_schools = rows("SELECT students, teachers FROM schools")
+                local_users = rows("SELECT id FROM users")
+                self.send_json({
+                    "cities": 0,
+                    "schools": len(local_schools),
+                    "activeSchools": len(local_schools),
+                    "students": sum(school["students"] for school in local_schools),
+                    "enrollments": 0,
+                    "teachers": sum(school["teachers"] for school in local_schools),
+                    "users": len(local_users),
+                })
+                return
+            with pg_connect() as conn:
+                active_schools = conn.execute("SELECT COUNT(*) AS total FROM public.escolas WHERE ativa = true").fetchone()["total"]
+                payload = {
+                    "cities": pg_count(conn, "municipios"),
+                    "schools": pg_count(conn, "escolas"),
+                    "activeSchools": active_schools,
+                    "students": pg_count(conn, "alunos"),
+                    "enrollments": pg_count(conn, "matriculas"),
+                    "teachers": pg_count(conn, "professores"),
+                    "users": pg_count(conn, "usuarios"),
+                }
+            self.send_json(payload)
             return
         if path == "/api/dashboard":
             schools = rows("SELECT name, students, teachers, attendance, approval, status FROM schools ORDER BY name")

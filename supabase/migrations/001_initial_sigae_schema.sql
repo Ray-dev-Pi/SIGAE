@@ -340,6 +340,9 @@ create table if not exists public.auditoria_logs (
 create index if not exists idx_usuarios_cpf on public.usuarios(cpf);
 create index if not exists idx_usuarios_auth_user_id on public.usuarios(auth_user_id);
 create index if not exists idx_usuarios_cargos_usuario on public.usuarios_cargos(usuario_id);
+create unique index if not exists idx_usuarios_cargos_global_unique
+on public.usuarios_cargos(usuario_id, cargo)
+where municipio_id is null and escola_id is null;
 create index if not exists idx_escolas_municipio on public.escolas(municipio_id);
 create index if not exists idx_alunos_municipio on public.alunos(municipio_id);
 create index if not exists idx_matriculas_turma on public.matriculas(turma_id);

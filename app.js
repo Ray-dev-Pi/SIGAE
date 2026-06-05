@@ -622,7 +622,7 @@ async function authenticateUser(cpf, password) {
     const roleResponse = await client
       .from(supabaseConfig.tables.roles)
       .select("cargo, escola")
-      .eq("usuario_id", result.data.user.id);
+      .eq("usuario_id", userResponse.data.id);
     if (roleResponse.error) throw new Error(roleResponse.error.message);
     return normalizeUser({
       name: userResponse.data.nome || result.data.user.user_metadata?.name || userResponse.data.email,

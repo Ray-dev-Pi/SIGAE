@@ -6,6 +6,7 @@ create extension if not exists pgcrypto;
 do $$
 begin
   create type public.perfil_usuario as enum (
+    'super_admin',
     'administrador',
     'gestor_municipal',
     'diretor',
@@ -410,7 +411,7 @@ as $$
     join public.usuarios_cargos c on c.usuario_id = u.id
     where u.auth_user_id = auth.uid()
       and c.ativo = true
-      and c.cargo in ('administrador', 'gestor_municipal')
+      and c.cargo in ('super_admin', 'administrador', 'gestor_municipal')
   )
 $$;
 

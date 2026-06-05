@@ -6,7 +6,7 @@ Este diretório contém a estrutura inicial do banco PostgreSQL do SIGAE para Su
 
 1. Abra o projeto no Supabase.
 2. Acesse **SQL Editor**.
-3. Cole e execute o conteúdo de `migrations/001_initial_sigae_schema.sql`.
+3. Execute as migrations em ordem: `001_initial_sigae_schema.sql`, `002_add_super_admin_profile.sql`, `003_seed_super_admin.sql` e `004_allow_super_admin_rls.sql`.
 4. Depois configure `supabase.js` localmente a partir de `supabase.example.js`.
 
 ## Observações

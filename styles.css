@@ -1035,6 +1035,22 @@ textarea {
   gap: 6px;
 }
 
+.admin-form {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-form label {
+  color: var(--muted);
+  display: grid;
+  font-size: 0.9rem;
+  gap: 6px;
+}
+
+.admin-form .primary-action {
+  margin-top: 4px;
+}
+
 dialog {
   border: 0;
   border-radius: 8px;

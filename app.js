@@ -1,8 +1,8 @@
 let schools = [
-  { name: "EMEF Paulo Freire", students: 1240, teachers: 82, attendance: 94, approval: 88, status: "Regular" },
-  { name: "EMEI Ana Neri", students: 680, teachers: 41, attendance: 91, approval: 92, status: "Regular" },
-  { name: "EMEF Darcy Ribeiro", students: 980, teachers: 63, attendance: 87, approval: 81, status: "Atenção" },
-  { name: "CMEI Esperança", students: 520, teachers: 34, attendance: 96, approval: 95, status: "Regular" },
+  { name: "EMEF Paulo Freire", students: 1240, teachers: 82, attendance: 94, approval: 88, status: "Regular", active: true, inep: "35000001", city: "Sede" },
+  { name: "EMEI Ana Neri", students: 680, teachers: 41, attendance: 91, approval: 92, status: "Regular", active: true, inep: "35000002", city: "Sede" },
+  { name: "EMEF Darcy Ribeiro", students: 980, teachers: 63, attendance: 87, approval: 81, status: "Atenção", active: true, inep: "35000003", city: "Zona Norte" },
+  { name: "CMEI Esperança", students: 520, teachers: 34, attendance: 96, approval: 95, status: "Regular", active: true, inep: "35000004", city: "Zona Sul" },
 ];
 
 const students = [
@@ -13,6 +13,11 @@ const students = [
 ];
 
 const records = JSON.parse(localStorage.getItem("sigaeRecords") || "[]");
+const savedSchools = JSON.parse(localStorage.getItem("sigaeSchools") || "[]");
+const schoolUsers = JSON.parse(localStorage.getItem("sigaeSchoolUsers") || "[]");
+if (savedSchools.length) {
+  schools = savedSchools;
+}
 let apiAvailable = false;
 let pendingLoginUser = null;
 
@@ -43,6 +48,11 @@ const activities = [
 ];
 
 const views = {
+  superadmin: {
+    title: "Super Admin",
+    subtitle: "Gerencie escolas, status das unidades e cadastros estratégicos de secretárias escolares e diretores.",
+    render: renderSuperAdmin,
+  },
   dashboard: {
     title: "Painel executivo da rede municipal",
     subtitle: "Indicadores consolidados para acompanhar escolas, matrículas, frequência, rendimento e comunicação em tempo real.",
@@ -118,24 +128,33 @@ const roleOptions = document.querySelector("#roleOptions");
 const profileSelect = document.querySelector("#profileSelect");
 
 const roleToProfile = {
+  "Super Admin": "Super Admin",
+  "super_admin": "Super Admin",
+  Administrador: "Super Admin",
+  administrador: "Super Admin",
   Diretor: "Diretor",
+  diretor: "Diretor",
   "Gestor municipal": "Gestor municipal",
+  gestor_municipal: "Gestor municipal",
   Gestor: "Gestor municipal",
   "Secretaria escolar": "Secretaria escolar",
+  secretaria_escolar: "Secretaria escolar",
   Professor: "Professor",
+  professor: "Professor",
   Aluno: "Aluno",
+  aluno: "Aluno",
   "Responsável": "Responsável",
-  Administrador: "Administrador",
+  responsavel: "Responsável",
 };
 
 const profileToView = {
+  "Super Admin": "superadmin",
   Diretor: "administrativo",
   "Gestor municipal": "dashboard",
   "Secretaria escolar": "secretaria",
   Professor: "pedagogico",
   Aluno: "ava",
   "Responsável": "portais",
-  Administrador: "seguranca",
 };
 
 const allProfiles = Object.keys(profileToView);
@@ -217,6 +236,98 @@ function renderSchoolTable() {
               <td><button class="table-action">Abrir</button></td>
             </tr>
           `).join("")}
+        </tbody>
+      </table>
+    </section>
+  `;
+}
+
+function renderSuperAdmin() {
+  const activeCount = schools.filter((school) => school.active !== false).length;
+  const inactiveCount = schools.length - activeCount;
+  return `
+    <section class="kpi-grid">
+      <article class="kpi-card"><span>Escolas cadastradas</span><strong>${schools.length}</strong><small class="trend">${activeCount} ativas</small></article>
+      <article class="kpi-card"><span>Escolas inativas</span><strong>${inactiveCount}</strong><small class="trend">Controle administrativo</small></article>
+      <article class="kpi-card"><span>Diretores</span><strong>${schoolUsers.filter((user) => user.role === "Diretor").length}</strong><small class="trend">Vinculados a escolas</small></article>
+      <article class="kpi-card"><span>Secretárias</span><strong>${schoolUsers.filter((user) => user.role === "Secretaria escolar").length}</strong><small class="trend">Perfis operacionais</small></article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div><p class="eyebrow">Unidades escolares</p><h2>Gerenciamento de escolas</h2></div>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Escola</th><th>INEP</th><th>Região</th><th>Alunos</th><th>Professores</th><th>Status</th><th>Ação</th></tr></thead>
+        <tbody>
+          ${schools.map((school, index) => `
+            <tr>
+              <td><strong>${school.name}</strong></td>
+              <td>${school.inep || "-"}</td>
+              <td>${school.city || "-"}</td>
+              <td>${school.students || 0}</td>
+              <td>${school.teachers || 0}</td>
+              <td>${badge(school.active === false ? "Inativa" : "Ativo")}</td>
+              <td><button class="table-action school-status-toggle" data-school-index="${index}">${school.active === false ? "Ativar" : "Inativar"}</button></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="split-list">
+      <article class="panel">
+        <div class="panel-header">
+          <div><p class="eyebrow">Cadastro</p><h2>Nova escola</h2></div>
+        </div>
+        <form class="admin-form" id="schoolAdminForm">
+          <label>Nome da escola<input name="name" required /></label>
+          <label>Código INEP<input name="inep" inputmode="numeric" /></label>
+          <label>Região ou bairro<input name="city" /></label>
+          <label>Etapas atendidas<input name="stages" placeholder="Ex.: Fundamental, Infantil" /></label>
+          <button class="primary-action" type="submit">Cadastrar escola</button>
+        </form>
+      </article>
+
+      <article class="panel">
+        <div class="panel-header">
+          <div><p class="eyebrow">Perfis escolares</p><h2>Cadastrar secretária ou diretor</h2></div>
+        </div>
+        <form class="admin-form" id="schoolUserAdminForm">
+          <label>Nome completo<input name="name" required /></label>
+          <label>CPF<input name="cpf" inputmode="numeric" maxlength="11" required /></label>
+          <label>Cargo
+            <select name="role">
+              <option>Diretor</option>
+              <option>Secretaria escolar</option>
+            </select>
+          </label>
+          <label>Escola
+            <select name="school">
+              ${schools.map((school) => `<option>${school.name}</option>`).join("")}
+            </select>
+          </label>
+          <button class="primary-action" type="submit">Cadastrar usuário</button>
+        </form>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div><p class="eyebrow">Usuários cadastrados</p><h2>Diretores e secretárias</h2></div>
+      </div>
+      <table class="data-table">
+        <thead><tr><th>Nome</th><th>CPF</th><th>Cargo</th><th>Escola</th><th>Status</th></tr></thead>
+        <tbody>
+          ${schoolUsers.length ? schoolUsers.map((user) => `
+            <tr>
+              <td><strong>${user.name}</strong></td>
+              <td>${user.cpf}</td>
+              <td>${user.role}</td>
+              <td>${user.school}</td>
+              <td>${badge("Ativo")}</td>
+            </tr>
+          `).join("") : `<tr><td colspan="5">Nenhum diretor ou secretária cadastrado nesta sessão.</td></tr>`}
         </tbody>
       </table>
     </section>
@@ -395,7 +506,69 @@ function setView(viewName) {
   viewSubtitle.textContent = view.subtitle;
   mainColumn.innerHTML = view.render();
   document.querySelectorAll(".nav-item").forEach((item) => item.classList.toggle("active", item.dataset.view === viewName));
+  if (viewName === "superadmin") {
+    bindSuperAdminActions();
+  }
   sidebar.classList.remove("open");
+}
+
+function saveAdminState() {
+  localStorage.setItem("sigaeSchools", JSON.stringify(schools));
+  localStorage.setItem("sigaeSchoolUsers", JSON.stringify(schoolUsers));
+}
+
+function bindSuperAdminActions() {
+  document.querySelectorAll(".school-status-toggle").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.schoolIndex);
+      schools[index].active = schools[index].active === false;
+      schools[index].status = schools[index].active ? "Regular" : "Inativa";
+      saveAdminState();
+      setView("superadmin");
+    });
+  });
+
+  document.querySelector("#schoolAdminForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("name") || "").trim();
+    if (!name) return;
+    schools.push({
+      name,
+      inep: String(form.get("inep") || "").replace(/\D/g, ""),
+      city: String(form.get("city") || "").trim(),
+      stages: String(form.get("stages") || "").trim(),
+      students: 0,
+      teachers: 0,
+      attendance: 0,
+      approval: 0,
+      status: "Regular",
+      active: true,
+    });
+    saveAdminState();
+    setView("superadmin");
+  });
+
+  document.querySelector("#schoolUserAdminForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("name") || "").trim();
+    const cpf = String(form.get("cpf") || "").replace(/\D/g, "").slice(0, 11);
+    if (!name || cpf.length !== 11) return;
+    schoolUsers.push({
+      name,
+      cpf,
+      role: String(form.get("role") || "Diretor"),
+      school: String(form.get("school") || ""),
+      active: true,
+    });
+    saveAdminState();
+    setView("superadmin");
+  });
+
+  document.querySelector("#schoolUserAdminForm input[name='cpf']")?.addEventListener("input", (event) => {
+    event.target.value = event.target.value.replace(/\D/g, "").slice(0, 11);
+  });
 }
 
 function normalizeUser(user) {
@@ -486,7 +659,7 @@ function hideFormAlert() {
 }
 
 function configureProfileOptions(session) {
-  const profiles = session.activeProfile === "Administrador"
+  const profiles = session.activeProfile === "Super Admin" || session.activeProfile === "Administrador"
     ? allProfiles
     : session.roles.map((role) => roleToProfile[role] || role).filter((profile) => profileToView[profile]);
   profileSelect.innerHTML = profiles.map((profile) => `<option>${profile}</option>`).join("");
@@ -652,7 +825,7 @@ async function hydrateFromApi() {
     const response = await fetch("/api/dashboard");
     if (!response.ok) return;
     const data = await response.json();
-    if (Array.isArray(data.schools)) {
+    if (Array.isArray(data.schools) && !savedSchools.length) {
       schools = data.schools;
       apiAvailable = true;
     }

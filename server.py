@@ -61,7 +61,7 @@ def init_db():
                 """
                 INSERT INTO users (name, email, cpf, role, password_hash)
                 VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT(email) DO UPDATE SET name = excluded.name, cpf = excluded.cpf, role = excluded.role
+                ON CONFLICT(email) DO UPDATE SET name = excluded.name, cpf = excluded.cpf, role = excluded.role, password_hash = excluded.password_hash
                 """,
                 (name, email, cpf, role, hash_password(password)),
             )

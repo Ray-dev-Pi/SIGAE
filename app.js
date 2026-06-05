@@ -14,10 +14,13 @@ const students = [
 
 const records = JSON.parse(localStorage.getItem("sigaeRecords") || "[]");
 let schoolUsers = [];
+let registrationInvites = [];
+let lastInviteLink = "";
 let apiAvailable = false;
 let cloudStorageAvailable = false;
 let pendingLoginUser = null;
 let supabaseClient = null;
+let activeInviteToken = "";
 let globalStats = {
   cities: 0,
   schools: schools.length,
@@ -126,10 +129,15 @@ const viewSubtitle = document.querySelector("#viewSubtitle");
 const searchInput = document.querySelector("#globalSearch");
 const sidebar = document.querySelector("#sidebar");
 const loginScreen = document.querySelector("#loginScreen");
+const inviteScreen = document.querySelector("#inviteScreen");
 const appShell = document.querySelector("#appShell");
 const loginForm = document.querySelector("#loginForm");
 const loginFeedback = document.querySelector("#loginFeedback");
 const formAlert = document.querySelector("#formAlert");
+const inviteForm = document.querySelector("#inviteForm");
+const inviteAlert = document.querySelector("#inviteAlert");
+const inviteFeedback = document.querySelector("#inviteFeedback");
+const inviteSummary = document.querySelector("#inviteSummary");
 const rolePicker = document.querySelector("#rolePicker");
 const roleOptions = document.querySelector("#roleOptions");
 const profileSelect = document.querySelector("#profileSelect");
@@ -165,6 +173,29 @@ const profileToView = {
 };
 
 const allProfiles = Object.keys(profileToView);
+
+function roleLabel(role) {
+  return {
+    gestor_municipal: "Secretário(a) de Educação",
+    diretor: "Diretor",
+    secretaria_escolar: "Secretaria escolar",
+    super_admin: "Super Admin",
+  }[role] || roleToProfile[role] || role;
+}
+
+function generateToken() {
+  const bytes = new Uint8Array(18);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function inviteLink(token) {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("invite", token);
+  return url.toString();
+}
 
 function badge(status) {
   const cls = status === "Regular" || status === "Ativo" ? "" : status === "Recuperação" || status === "Atenção" ? "warning" : "danger";
@@ -265,6 +296,49 @@ function renderSuperAdmin() {
       <article class="kpi-card"><span>Escolas cadastradas</span><strong>${totalSchools}</strong><small class="trend">${activeCount} ativas e ${inactiveCount} inativas</small></article>
       <article class="kpi-card"><span>Alunos na rede</span><strong>${(globalStats.students || 0).toLocaleString("pt-BR")}</strong><small class="trend">${(globalStats.enrollments || 0).toLocaleString("pt-BR")} matrículas</small></article>
       <article class="kpi-card"><span>Usuários e equipes</span><strong>${(globalStats.users || schoolUsers.length).toLocaleString("pt-BR")}</strong><small class="trend">${(globalStats.teachers || 0).toLocaleString("pt-BR")} professores</small></article>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <div><p class="eyebrow">Convites por token</p><h2>Links de cadastro institucional</h2></div>
+      </div>
+      <div class="split-list">
+        <form class="admin-form" id="educationInviteForm">
+          <h3>Secretaria de Educação</h3>
+          <p class="form-help">Gere um link para secretário(a) completar o cadastro e assumir a gestão municipal.</p>
+          <label>Nome do destinatário<input name="targetName" placeholder="Ex.: Maria Silva" /></label>
+          <label>E-mail institucional<input name="targetEmail" type="email" placeholder="secretaria@municipio.gov.br" /></label>
+          <button class="primary-action" type="submit">Gerar link da Secretaria</button>
+        </form>
+        <form class="admin-form" id="directorInviteForm">
+          <h3>Diretor escolar</h3>
+          <p class="form-help">Gere um link para diretor cadastrar seu acesso e operar escolas, professores e alunos.</p>
+          <label>Nome do destinatário<input name="targetName" placeholder="Ex.: João Santos" /></label>
+          <label>E-mail institucional<input name="targetEmail" type="email" placeholder="diretor@escola.gov.br" /></label>
+          <button class="primary-action" type="submit">Gerar link do Diretor</button>
+        </form>
+      </div>
+      ${lastInviteLink ? `
+        <div class="invite-link-box">
+          <span>Último link gerado</span>
+          <input value="${lastInviteLink}" readonly />
+          <button class="secondary-action" id="copyInviteLinkButton" type="button">Copiar link</button>
+        </div>
+      ` : ""}
+      <table class="data-table invite-table">
+        <thead><tr><th>Cargo</th><th>Destinatário</th><th>Status</th><th>Validade</th><th>Link</th></tr></thead>
+        <tbody>
+          ${registrationInvites.length ? registrationInvites.map((invite) => `
+            <tr>
+              <td><strong>${invite.roleLabel || roleLabel(invite.role)}</strong></td>
+              <td>${invite.targetName || invite.targetEmail || "-"}</td>
+              <td>${badge(invite.status === "pendente" ? "Pendente" : invite.status === "utilizado" ? "Ativo" : "Inativa")}</td>
+              <td>${invite.expiresAt ? new Date(invite.expiresAt).toLocaleDateString("pt-BR") : "-"}</td>
+              <td><button class="table-action copy-invite-link" data-link="${invite.link || inviteLink(invite.token)}" type="button">Copiar</button></td>
+            </tr>
+          `).join("") : `<tr><td colspan="5">Nenhum convite emitido ainda.</td></tr>`}
+        </tbody>
+      </table>
     </section>
 
     <section class="panel">
@@ -531,6 +605,39 @@ function saveAdminState() {
 }
 
 function bindSuperAdminActions() {
+  const bindInviteForm = (selector, role) => {
+    document.querySelector(selector)?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const button = event.currentTarget.querySelector("button[type='submit']");
+      button.disabled = true;
+      button.textContent = "Gerando...";
+      try {
+        await createInvite(role, new FormData(event.currentTarget));
+        event.currentTarget.reset();
+      } catch (error) {
+        lastInviteLink = error.message || "Não foi possível gerar o convite.";
+      } finally {
+        button.disabled = false;
+        button.textContent = role === "gestor_municipal" ? "Gerar link da Secretaria" : "Gerar link do Diretor";
+        setView("superadmin");
+      }
+    });
+  };
+
+  bindInviteForm("#educationInviteForm", "gestor_municipal");
+  bindInviteForm("#directorInviteForm", "diretor");
+
+  document.querySelector("#copyInviteLinkButton")?.addEventListener("click", async () => {
+    await navigator.clipboard?.writeText(lastInviteLink);
+  });
+
+  document.querySelectorAll(".copy-invite-link").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await navigator.clipboard?.writeText(button.dataset.link || "");
+      button.textContent = "Copiado";
+    });
+  });
+
   document.querySelectorAll(".school-status-toggle").forEach((button) => {
     button.addEventListener("click", async () => {
       if (!cloudStorageAvailable || !button.dataset.schoolId) {
@@ -710,6 +817,96 @@ async function hydrateAdminFromSupabase() {
   cloudStorageAvailable = true;
 }
 
+async function hydrateInvitesFromSupabase() {
+  if (!supabaseClient) return false;
+  const response = await supabaseClient
+    .from("cadastro_convites")
+    .select("id, token, cargo, nome_destinatario, email_destinatario, status, expira_em, criado_em")
+    .order("criado_em", { ascending: false })
+    .limit(30);
+  if (response.error) return false;
+  registrationInvites = response.data.map((invite) => ({
+    id: invite.id,
+    token: invite.token,
+    link: inviteLink(invite.token),
+    role: invite.cargo,
+    roleLabel: roleLabel(invite.cargo),
+    targetName: invite.nome_destinatario || "",
+    targetEmail: invite.email_destinatario || "",
+    status: invite.status,
+    expiresAt: invite.expira_em,
+    createdAt: invite.criado_em,
+  }));
+  return true;
+}
+
+async function createInvite(role, form) {
+  const targetName = String(form.get("targetName") || "").trim();
+  const targetEmail = String(form.get("targetEmail") || "").trim().toLowerCase();
+  try {
+    const response = await fetch("/api/invites", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role, targetName, targetEmail }),
+    });
+    if (response.ok) {
+      const invite = await response.json();
+      lastInviteLink = invite.link;
+      await hydrateInvites();
+      return invite;
+    }
+  } catch (error) {
+    apiAvailable = false;
+  }
+
+  ensureSupabaseClient();
+  if (!supabaseClient) throw new Error("Não foi possível gerar convite: API ou Supabase indisponível.");
+  const token = generateToken();
+  const insertResponse = await supabaseClient
+    .from("cadastro_convites")
+    .insert({
+      token,
+      cargo: role,
+      nome_destinatario: targetName || null,
+      email_destinatario: targetEmail || null,
+    })
+    .select("id, token, cargo, nome_destinatario, email_destinatario, status, expira_em, criado_em")
+    .single();
+  if (insertResponse.error) throw new Error(insertResponse.error.message);
+  const invite = {
+    id: insertResponse.data.id,
+    token,
+    link: inviteLink(token),
+    role,
+    roleLabel: roleLabel(role),
+    targetName,
+    targetEmail,
+    status: insertResponse.data.status,
+    expiresAt: insertResponse.data.expira_em,
+    createdAt: insertResponse.data.criado_em,
+  };
+  lastInviteLink = invite.link;
+  registrationInvites = [invite, ...registrationInvites];
+  return invite;
+}
+
+async function hydrateInvites() {
+  try {
+    const response = await fetch("/api/invites");
+    if (response.ok) {
+      registrationInvites = await response.json();
+      apiAvailable = true;
+      return;
+    }
+  } catch (error) {
+    apiAvailable = false;
+  }
+  ensureSupabaseClient();
+  if (supabaseClient) {
+    await hydrateInvitesFromSupabase();
+  }
+}
+
 async function authenticateUser(cpf, password) {
   const hasSupabaseConfig = Boolean(supabaseConfig.url && supabaseConfig.anonKey);
   const hasSupabaseSdk = Boolean(window.supabase?.createClient);
@@ -786,6 +983,7 @@ async function authenticateUser(cpf, password) {
 
 function showLogin(message = "") {
   appShell.hidden = true;
+  inviteScreen.hidden = true;
   loginScreen.hidden = false;
   document.body.classList.remove("is-authenticated");
   loginFeedback.textContent = message;
@@ -815,6 +1013,104 @@ function hideFormAlert() {
   formAlert.querySelector("p").textContent = "";
 }
 
+function showInviteAlert(message) {
+  inviteAlert.querySelector("p").textContent = message;
+  inviteAlert.hidden = false;
+}
+
+function hideInviteAlert() {
+  inviteAlert.hidden = true;
+  inviteAlert.querySelector("p").textContent = "";
+}
+
+async function fetchInvite(token) {
+  try {
+    const response = await fetch(`/api/invites/${token}`);
+    if (response.ok) return await response.json();
+  } catch (error) {
+    apiAvailable = false;
+  }
+
+  ensureSupabaseClient();
+  if (!supabaseClient) throw new Error("Não foi possível validar o convite.");
+  const response = await supabaseClient.rpc("buscar_convite_cadastro", { convite_token: token });
+  if (response.error) throw new Error(response.error.message);
+  const data = Array.isArray(response.data) ? response.data[0] : response.data;
+  if (!data) throw new Error("Convite não encontrado.");
+  return {
+    token: data.token,
+    role: data.cargo,
+    roleLabel: roleLabel(data.cargo),
+    targetName: data.nome_destinatario || "",
+    targetEmail: data.email_destinatario || "",
+    status: data.status,
+    expiresAt: data.expira_em,
+  };
+}
+
+async function showInviteRegistration(token) {
+  activeInviteToken = token;
+  loginScreen.hidden = true;
+  appShell.hidden = true;
+  inviteScreen.hidden = false;
+  document.body.classList.remove("is-authenticated");
+  inviteFeedback.textContent = "Validando convite...";
+  hideInviteAlert();
+  try {
+    const invite = await fetchInvite(token);
+    if (invite.status !== "pendente") {
+      throw new Error("Este convite está expirado ou já foi utilizado.");
+    }
+    inviteSummary.textContent = `Convite para ${invite.roleLabel || roleLabel(invite.role)}. Preencha seus dados para criar o acesso.`;
+    document.querySelector("#inviteName").value = invite.targetName || "";
+    document.querySelector("#inviteEmail").value = invite.targetEmail || "";
+    inviteFeedback.textContent = "";
+  } catch (error) {
+    showInviteAlert(error.message || "Convite inválido.");
+    inviteFeedback.textContent = "";
+    inviteForm.querySelector("button[type='submit']").disabled = true;
+  }
+}
+
+async function completeInviteRegistration(payload) {
+  try {
+    const response = await fetch("/api/invite-registration", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (response.ok) return await response.json();
+    const errorPayload = await response.json().catch(() => ({}));
+    throw new Error(errorPayload.error || "Não foi possível concluir o cadastro.");
+  } catch (error) {
+    if (!supabaseConfig.url || !window.supabase?.createClient) throw error;
+  }
+
+  ensureSupabaseClient();
+  const signup = await supabaseClient.auth.signUp({
+    email: payload.email,
+    password: payload.password,
+    options: {
+      data: {
+        name: payload.name,
+        cpf: payload.cpf,
+      },
+    },
+  });
+  if (signup.error) throw new Error(signup.error.message);
+  const authUserId = signup.data.user?.id;
+  if (!authUserId) throw new Error("Usuário criado sem identificador de autenticação.");
+  const response = await supabaseClient.rpc("aceitar_convite_cadastro", {
+    convite_token: payload.token,
+    cadastro_nome: payload.name,
+    cadastro_cpf: payload.cpf,
+    cadastro_email: payload.email,
+    cadastro_auth_user_id: authUserId,
+  });
+  if (response.error) throw new Error(response.error.message);
+  return { ok: true };
+}
+
 function configureProfileOptions(session) {
   const profiles = session.activeProfile === "Super Admin" || session.activeProfile === "Administrador"
     ? allProfiles
@@ -827,6 +1123,7 @@ function completeLogin(user, selectedRole) {
   const session = { ...user, activeRole: selectedRole, activeProfile: profile };
   sessionStorage.setItem("sigaeSession", JSON.stringify(session));
   loginScreen.hidden = true;
+  inviteScreen.hidden = true;
   appShell.hidden = false;
   document.body.classList.add("is-authenticated");
   configureProfileOptions(session);
@@ -836,7 +1133,7 @@ function completeLogin(user, selectedRole) {
   setView(profileToView[profile] || "dashboard");
   ensureSupabaseClient();
   if (profile === "Super Admin" && supabaseClient) {
-    hydrateAdminFromSupabase()
+    Promise.all([hydrateAdminFromSupabase(), hydrateInvites()])
       .then(() => {
         if (!appShell.hidden && profileSelect.value === "Super Admin") {
           setView("superadmin");
@@ -989,10 +1286,11 @@ profileSelect.addEventListener("change", (event) => {
 
 async function hydrateAdminFromApi() {
   try {
-    const [schoolsResponse, usersResponse, statsResponse] = await Promise.all([
+    const [schoolsResponse, usersResponse, statsResponse, invitesResponse] = await Promise.all([
       fetch("/api/schools"),
       fetch("/api/school-users"),
       fetch("/api/global-stats"),
+      fetch("/api/invites"),
     ]);
     if (!schoolsResponse.ok || !usersResponse.ok) {
       cloudStorageAvailable = false;
@@ -1002,6 +1300,9 @@ async function hydrateAdminFromApi() {
     schoolUsers = await usersResponse.json();
     if (statsResponse.ok) {
       globalStats = await statsResponse.json();
+    }
+    if (invitesResponse.ok) {
+      registrationInvites = await invitesResponse.json();
     }
     cloudStorageAvailable = true;
   } catch (error) {

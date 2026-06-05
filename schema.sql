@@ -37,3 +37,20 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   entity TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS registration_invites (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token TEXT NOT NULL UNIQUE,
+  role TEXT NOT NULL,
+  target_name TEXT,
+  target_email TEXT,
+  municipio_id TEXT,
+  escola_id TEXT,
+  status TEXT NOT NULL DEFAULT 'pendente',
+  created_by TEXT NOT NULL DEFAULT 'super_admin',
+  used_by_user_id INTEGER,
+  expires_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  used_at TEXT,
+  FOREIGN KEY (used_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+);

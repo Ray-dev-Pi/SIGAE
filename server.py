@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 import base64
+from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
 import json
 import os
+import secrets
 import sqlite3
+import uuid
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
@@ -42,6 +45,28 @@ def verify_password(password, stored):
     return hmac.compare_digest(digest, expected)
 
 
+def normalize_cpf(value):
+    return "".join(char for char in str(value or "") if char.isdigit())[:11]
+
+
+def invite_role_to_profile(role):
+    return {
+        "gestor_municipal": "Gestor municipal",
+        "diretor": "Diretor",
+        "secretaria_escolar": "Secretaria escolar",
+    }.get(role, role)
+
+
+def new_invite_token():
+    return secrets.token_urlsafe(24)
+
+
+def invite_link(handler, token):
+    scheme = "https" if handler.headers.get("X-Forwarded-Proto") == "https" else "http"
+    host = handler.headers.get("Host", "127.0.0.1:8000")
+    return f"{scheme}://{host}/?invite={token}"
+
+
 def init_db():
     seed_users = [
         ("Super Admin SIGAE", "superadmin@sigae.local", "05574671360", "super_admin", "055746713"),
@@ -56,6 +81,7 @@ def init_db():
         if "cpf" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN cpf TEXT")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_cpf ON users(cpf)")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_registration_invites_token ON registration_invites(token)")
         for name, email, cpf, role, password in seed_users:
             conn.execute(
                 """
@@ -144,11 +170,112 @@ def map_school_user(row):
     }
 
 
+def map_invite(row, handler=None):
+    data = dict(row)
+    token = data["token"]
+    return {
+        "id": str(data["id"]),
+        "token": token,
+        "link": invite_link(handler, token) if handler else "",
+        "role": data.get("role") or data.get("cargo"),
+        "roleLabel": invite_role_to_profile(data.get("role") or data.get("cargo")),
+        "targetName": data.get("target_name") or data.get("nome_destinatario") or "",
+        "targetEmail": data.get("target_email") or data.get("email_destinatario") or "",
+        "status": data.get("status") or "pendente",
+        "expiresAt": str(data.get("expires_at") or data.get("expira_em") or ""),
+        "createdAt": str(data.get("created_at") or data.get("criado_em") or ""),
+    }
+
+
 def pg_count(conn, table):
     try:
         return conn.execute(f"SELECT COUNT(*) AS total FROM public.{table}").fetchone()["total"]
     except Exception:
         return 0
+
+
+def ensure_pg_auth_user(conn, name, email, cpf, password):
+    auth_user = conn.execute("SELECT id FROM auth.users WHERE email = %s LIMIT 1", (email,)).fetchone()
+    auth_user_id = auth_user["id"] if auth_user else str(uuid.uuid4())
+    metadata = json.dumps({"name": name, "cpf": cpf})
+    app_metadata = json.dumps({"provider": "email", "providers": ["email"]})
+
+    if auth_user:
+        conn.execute(
+            """
+            UPDATE auth.users
+            SET encrypted_password = crypt(%s, gen_salt('bf')),
+                email_confirmed_at = coalesce(email_confirmed_at, now()),
+                raw_app_meta_data = %s::jsonb,
+                raw_user_meta_data = %s::jsonb,
+                updated_at = now()
+            WHERE id = %s
+            """,
+            (password, app_metadata, metadata, auth_user_id),
+        )
+    else:
+        conn.execute(
+            """
+            INSERT INTO auth.users (
+              instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+              raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+            )
+            VALUES (
+              '00000000-0000-0000-0000-000000000000',
+              %s, 'authenticated', 'authenticated', %s, crypt(%s, gen_salt('bf')), now(),
+              %s::jsonb, %s::jsonb, now(), now()
+            )
+            """,
+            (auth_user_id, email, password, app_metadata, metadata),
+        )
+
+    conn.execute("DELETE FROM auth.identities WHERE user_id = %s AND provider = 'email'", (auth_user_id,))
+    has_provider_id = conn.execute(
+        """
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'auth' AND table_name = 'identities' AND column_name = 'provider_id'
+        ) AS exists
+        """
+    ).fetchone()["exists"]
+    identity_id_is_uuid = conn.execute(
+        """
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = 'auth' AND table_name = 'identities' AND column_name = 'id' AND udt_name = 'uuid'
+        ) AS exists
+        """
+    ).fetchone()["exists"]
+    identity_id = auth_user_id if identity_id_is_uuid else str(auth_user_id)
+    identity_data = json.dumps({
+        "sub": str(auth_user_id),
+        "email": email,
+        "email_verified": True,
+        "phone_verified": False,
+    })
+
+    if has_provider_id:
+        conn.execute(
+            """
+            INSERT INTO auth.identities (
+              id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+            )
+            VALUES (%s, %s, %s, %s::jsonb, 'email', now(), now(), now())
+            """,
+            (identity_id, auth_user_id, str(auth_user_id), identity_data),
+        )
+    else:
+        conn.execute(
+            """
+            INSERT INTO auth.identities (
+              id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+            )
+            VALUES (%s, %s, %s::jsonb, 'email', now(), now(), now())
+            """,
+            (identity_id, auth_user_id, identity_data),
+        )
+
+    return auth_user_id
 
 
 class SigaeHandler(SimpleHTTPRequestHandler):
@@ -251,6 +378,64 @@ class SigaeHandler(SimpleHTTPRequestHandler):
         if path == "/api/audit":
             self.send_json(rows("SELECT actor, action, entity, created_at FROM audit_logs ORDER BY id DESC LIMIT 20"))
             return
+        if path == "/api/invites":
+            if cloud_enabled():
+                with pg_connect() as conn:
+                    invite_rows = conn.execute(
+                        """
+                        SELECT id, token, cargo, nome_destinatario, email_destinatario, status, expira_em, criado_em
+                        FROM public.cadastro_convites
+                        ORDER BY criado_em DESC
+                        LIMIT 30
+                        """
+                    ).fetchall()
+            else:
+                invite_rows = rows(
+                    """
+                    SELECT id, token, role, target_name, target_email, status, expires_at, created_at
+                    FROM registration_invites
+                    ORDER BY created_at DESC
+                    LIMIT 30
+                    """
+                )
+            self.send_json([map_invite(row, self) for row in invite_rows])
+            return
+        if path.startswith("/api/invites/"):
+            token = path.rsplit("/", 1)[-1]
+            if cloud_enabled():
+                with pg_connect() as conn:
+                    row = conn.execute(
+                        """
+                        SELECT id, token, cargo, nome_destinatario, email_destinatario,
+                               case when status = 'pendente' and expira_em < now() then 'expirado' else status end as status,
+                               expira_em, criado_em
+                        FROM public.cadastro_convites
+                        WHERE token = %s
+                        LIMIT 1
+                        """,
+                        (token,),
+                    ).fetchone()
+            else:
+                with connect() as conn:
+                    row = conn.execute(
+                        """
+                        SELECT id, token, role, target_name, target_email,
+                               CASE
+                                 WHEN status = 'pendente' AND expires_at IS NOT NULL AND expires_at < datetime('now') THEN 'expirado'
+                                 ELSE status
+                               END AS status,
+                               expires_at, created_at
+                        FROM registration_invites
+                        WHERE token = ?
+                        LIMIT 1
+                        """,
+                        (token,),
+                    ).fetchone()
+            if not row:
+                self.send_json({"error": "Convite não encontrado."}, 404)
+                return
+            self.send_json(map_invite(row, self))
+            return
         super().do_GET()
 
     def do_POST(self):
@@ -281,6 +466,159 @@ class SigaeHandler(SimpleHTTPRequestHandler):
                 )
                 conn.execute("INSERT INTO audit_logs (actor, action, entity) VALUES (?, ?, ?)", ("API", "Registro criado", payload["type"]))
             self.send_json({"id": cursor.lastrowid, **payload}, 201)
+            return
+        if path == "/api/invites":
+            role = payload.get("role", "").strip()
+            allowed_roles = {"gestor_municipal", "diretor", "secretaria_escolar"}
+            if role not in allowed_roles:
+                self.send_json({"error": "Cargo inválido para convite."}, 400)
+                return
+            token = new_invite_token()
+            target_name = payload.get("targetName", "").strip()
+            target_email = payload.get("targetEmail", "").strip().lower()
+            expires_at = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+            if cloud_enabled():
+                with pg_connect() as conn:
+                    row = conn.execute(
+                        """
+                        INSERT INTO public.cadastro_convites (
+                          token, cargo, nome_destinatario, email_destinatario, expira_em
+                        )
+                        VALUES (%s, %s::public.perfil_usuario, NULLIF(%s, ''), NULLIF(%s, ''), now() + interval '7 days')
+                        RETURNING id, token, cargo, nome_destinatario, email_destinatario, status, expira_em, criado_em
+                        """,
+                        (token, role, target_name, target_email),
+                    ).fetchone()
+                    conn.commit()
+            else:
+                with connect() as conn:
+                    cursor = conn.execute(
+                        """
+                        INSERT INTO registration_invites (token, role, target_name, target_email, expires_at)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (token, role, target_name, target_email, expires_at),
+                    )
+                    conn.execute(
+                        "INSERT INTO audit_logs (actor, action, entity) VALUES (?, ?, ?)",
+                        ("Super Admin", "Convite de cadastro gerado", invite_role_to_profile(role)),
+                    )
+                    row = conn.execute("SELECT * FROM registration_invites WHERE id = ?", (cursor.lastrowid,)).fetchone()
+            self.send_json(map_invite(row, self), 201)
+            return
+        if path == "/api/invite-registration":
+            token = payload.get("token", "").strip()
+            name = payload.get("name", "").strip()
+            email = payload.get("email", "").strip().lower()
+            cpf = normalize_cpf(payload.get("cpf", ""))
+            password = payload.get("password", "")
+            if not token or not name or not email or len(cpf) != 11 or len(password) < 6:
+                self.send_json({"error": "Preencha nome, e-mail, CPF com 11 números e senha com pelo menos 6 caracteres."}, 400)
+                return
+            if cloud_enabled():
+                with pg_connect() as conn:
+                    invite = conn.execute(
+                        """
+                        SELECT *
+                        FROM public.cadastro_convites
+                        WHERE token = %s
+                        FOR UPDATE
+                        """,
+                        (token,),
+                    ).fetchone()
+                    if not invite:
+                        self.send_json({"error": "Convite não encontrado."}, 404)
+                        return
+                    if invite["status"] != "pendente" or invite["expira_em"] < datetime.now(timezone.utc):
+                        self.send_json({"error": "Convite expirado ou já utilizado."}, 409)
+                        return
+                    auth_user_id = ensure_pg_auth_user(conn, name, email, cpf, password)
+                    user = conn.execute(
+                        """
+                        INSERT INTO public.usuarios (auth_user_id, municipio_id, escola_id, nome, cpf, email, ativo)
+                        VALUES (%s, %s, %s, %s, %s, %s, true)
+                        ON CONFLICT (cpf) DO UPDATE
+                        SET auth_user_id = EXCLUDED.auth_user_id,
+                            municipio_id = EXCLUDED.municipio_id,
+                            escola_id = EXCLUDED.escola_id,
+                            nome = EXCLUDED.nome,
+                            email = EXCLUDED.email,
+                            ativo = true
+                        RETURNING id
+                        """,
+                        (auth_user_id, invite["municipio_id"], invite["escola_id"], name, cpf, email),
+                    ).fetchone()
+                    conn.execute(
+                        """
+                        DELETE FROM public.usuarios_cargos
+                        WHERE usuario_id = %s
+                          AND cargo = %s::public.perfil_usuario
+                          AND municipio_id IS NOT DISTINCT FROM %s
+                          AND escola_id IS NOT DISTINCT FROM %s
+                        """,
+                        (user["id"], invite["cargo"], invite["municipio_id"], invite["escola_id"]),
+                    )
+                    conn.execute(
+                        """
+                        INSERT INTO public.usuarios_cargos (usuario_id, municipio_id, escola_id, cargo, ativo)
+                        VALUES (%s, %s, %s, %s::public.perfil_usuario, true)
+                        """,
+                        (user["id"], invite["municipio_id"], invite["escola_id"], invite["cargo"]),
+                    )
+                    conn.execute(
+                        """
+                        UPDATE public.cadastro_convites
+                        SET status = 'utilizado', usado_por = %s, usado_em = now()
+                        WHERE id = %s
+                        """,
+                        (user["id"], invite["id"]),
+                    )
+                    conn.commit()
+                    role = invite["cargo"]
+            else:
+                with connect() as conn:
+                    invite = conn.execute(
+                        """
+                        SELECT *
+                        FROM registration_invites
+                        WHERE token = ?
+                        LIMIT 1
+                        """,
+                        (token,),
+                    ).fetchone()
+                    if not invite:
+                        self.send_json({"error": "Convite não encontrado."}, 404)
+                        return
+                    if invite["status"] != "pendente" or (invite["expires_at"] and invite["expires_at"] < datetime.utcnow().isoformat()):
+                        self.send_json({"error": "Convite expirado ou já utilizado."}, 409)
+                        return
+                    cursor = conn.execute(
+                        """
+                        INSERT INTO users (name, email, cpf, role, password_hash)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT(email) DO UPDATE
+                        SET name = excluded.name,
+                            cpf = excluded.cpf,
+                            role = excluded.role,
+                            password_hash = excluded.password_hash
+                        """,
+                        (name, email, cpf, invite["role"], hash_password(password)),
+                    )
+                    user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+                    conn.execute(
+                        """
+                        UPDATE registration_invites
+                        SET status = 'utilizado', used_by_user_id = ?, used_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                        """,
+                        (user["id"], invite["id"]),
+                    )
+                    conn.execute(
+                        "INSERT INTO audit_logs (actor, action, entity) VALUES (?, ?, ?)",
+                        (name, "Cadastro concluído por convite", invite_role_to_profile(invite["role"])),
+                    )
+                    role = invite["role"]
+            self.send_json({"ok": True, "role": role, "roleLabel": invite_role_to_profile(role)}, 201)
             return
         if path == "/api/schools":
             if not cloud_enabled():

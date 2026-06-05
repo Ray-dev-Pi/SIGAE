@@ -615,13 +615,14 @@ function bindSuperAdminActions() {
   const bindInviteForm = (selector, role) => {
     document.querySelector(selector)?.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const button = event.currentTarget.querySelector("button[type='submit']");
+      const form = event.currentTarget;
+      const button = form.querySelector("button[type='submit']");
       button.disabled = true;
       button.textContent = "Gerando...";
       try {
-        await createInvite(role, new FormData(event.currentTarget));
+        await createInvite(role, new FormData(form));
         lastInviteError = "";
-        event.currentTarget.reset();
+        form.reset();
       } catch (error) {
         lastInviteLink = "";
         lastInviteError = error.message || "Não foi possível gerar o convite.";

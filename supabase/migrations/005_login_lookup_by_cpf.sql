@@ -10,9 +10,13 @@ stable
 security definer
 set search_path = public
 as $$
+  with normalized as (
+    select regexp_replace(coalesce(login_cpf, ''), '[^0-9]', '', 'g') as cpf_digits
+  )
   select u.id, u.nome, u.email, u.cpf
   from public.usuarios u
-  where u.cpf = regexp_replace(coalesce(login_cpf, ''), '[^0-9]', '', 'g')::char(11)
+  join normalized n on u.cpf::text = n.cpf_digits
+  where length(n.cpf_digits) = 11
     and u.ativo = true
     and u.email is not null
   limit 1

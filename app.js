@@ -608,8 +608,21 @@ function normalizeUser(user) {
   };
 }
 
+function isLocalHost() {
+  return ["localhost", "127.0.0.1", ""].includes(window.location.hostname);
+}
+
 async function authenticateUser(cpf, password) {
-  if (supabaseConfig.url && supabaseConfig.anonKey && window.supabase) {
+  const hasSupabaseConfig = Boolean(supabaseConfig.url && supabaseConfig.anonKey);
+  const hasSupabaseSdk = Boolean(window.supabase?.createClient);
+
+  if (!isLocalHost() && (!hasSupabaseConfig || !hasSupabaseSdk)) {
+    throw new Error(!hasSupabaseConfig
+      ? "Supabase de produção não configurado: publique o arquivo supabase.js com URL e anon key reais."
+      : "SDK do Supabase não carregado. Verifique o script @supabase/supabase-js no deploy.");
+  }
+
+  if (hasSupabaseConfig && hasSupabaseSdk) {
     const client = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey);
     const userResponse = await client.rpc("login_usuario_por_cpf", { login_cpf: cpf });
     if (userResponse.error) throw new Error(userResponse.error.message || "CPF não encontrado.");
@@ -617,7 +630,15 @@ async function authenticateUser(cpf, password) {
     if (!loginUser?.email) throw new Error("CPF não encontrado.");
 
     const result = await client.auth.signInWithPassword({ email: loginUser.email, password });
-    if (result.error) throw new Error("Senha incorreta para o CPF informado.");
+    if (result.error) {
+      console.error("Erro no Supabase Auth:", result.error);
+      if (["invalid_credentials", "email_not_confirmed"].includes(result.error.code)) {
+        throw new Error(result.error.code === "email_not_confirmed"
+          ? "Conta encontrada, mas o e-mail ainda não está confirmado no Supabase Auth."
+          : "Senha incorreta para o CPF informado.");
+      }
+      throw new Error(`Falha no Supabase Auth: ${result.error.message}`);
+    }
     const roleResponse = await client
       .from(supabaseConfig.tables.roles)
       .select("cargo, escola")

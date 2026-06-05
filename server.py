@@ -9,9 +9,17 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except ImportError:
+    psycopg = None
+    dict_row = None
+
 ROOT = Path(__file__).resolve().parent
 DB_PATH = ROOT / "sigae.db"
 SCHEMA_PATH = ROOT / "schema.sql"
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
 
 def connect():
@@ -36,10 +44,11 @@ def verify_password(password, stored):
 
 def init_db():
     seed_users = [
-        ("Administrador SIGAE", "admin@sigae.local", "00000000000", "Administrador"),
-        ("Helena Duarte", "diretor@sigae.local", "11111111111", "Diretor"),
-        ("Rafael Martins", "multi@sigae.local", "22222222222", "Professor,Gestor municipal"),
-        ("Clara Nascimento", "professor@sigae.local", "33333333333", "Professor"),
+        ("Super Admin SIGAE", "superadmin@sigae.local", "05574671360", "super_admin", "055746713"),
+        ("Administrador SIGAE", "admin@sigae.local", "00000000000", "Administrador", "sigae123"),
+        ("Helena Duarte", "diretor@sigae.local", "11111111111", "Diretor", "sigae123"),
+        ("Rafael Martins", "multi@sigae.local", "22222222222", "Professor,Gestor municipal", "sigae123"),
+        ("Clara Nascimento", "professor@sigae.local", "33333333333", "Professor", "sigae123"),
     ]
     with connect() as conn:
         conn.executescript(SCHEMA_PATH.read_text())
@@ -47,14 +56,14 @@ def init_db():
         if "cpf" not in columns:
             conn.execute("ALTER TABLE users ADD COLUMN cpf TEXT")
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_cpf ON users(cpf)")
-        for name, email, cpf, role in seed_users:
+        for name, email, cpf, role, password in seed_users:
             conn.execute(
                 """
                 INSERT INTO users (name, email, cpf, role, password_hash)
                 VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(email) DO UPDATE SET name = excluded.name, cpf = excluded.cpf, role = excluded.role
                 """,
-                (name, email, cpf, role, hash_password("sigae123")),
+                (name, email, cpf, role, hash_password(password)),
             )
         if conn.execute("SELECT COUNT(*) FROM schools").fetchone()[0] == 0:
             conn.executemany(
@@ -82,6 +91,59 @@ def rows(query, params=()):
         return [dict(row) for row in conn.execute(query, params).fetchall()]
 
 
+def cloud_enabled():
+    return bool(DATABASE_URL and psycopg)
+
+
+def pg_connect():
+    if not cloud_enabled():
+        raise RuntimeError("Supabase/PostgreSQL não configurado.")
+    return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+
+
+def ensure_default_municipio(conn):
+    row = conn.execute("SELECT id FROM public.municipios ORDER BY created_at LIMIT 1").fetchone()
+    if row:
+        return row["id"]
+    row = conn.execute(
+        """
+        INSERT INTO public.municipios (nome, uf)
+        VALUES (%s, %s)
+        RETURNING id
+        """,
+        ("Município SIGAE", "SP"),
+    ).fetchone()
+    return row["id"]
+
+
+def map_school(row):
+    endereco = row.get("endereco") or {}
+    return {
+        "id": str(row["id"]),
+        "name": row["nome"],
+        "inep": row.get("codigo_inep") or "",
+        "city": endereco.get("regiao") or endereco.get("bairro") or "",
+        "stages": ", ".join(row.get("etapas") or []),
+        "students": 0,
+        "teachers": 0,
+        "attendance": 0,
+        "approval": 0,
+        "status": "Regular" if row.get("ativa") else "Inativa",
+        "active": bool(row.get("ativa")),
+    }
+
+
+def map_school_user(row):
+    return {
+        "id": str(row["id"]),
+        "name": row["nome"],
+        "cpf": row["cpf"],
+        "role": "Diretor" if row["cargo"] == "diretor" else "Secretaria escolar",
+        "school": row.get("escola") or "",
+        "active": bool(row.get("ativo")),
+    }
+
+
 class SigaeHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(ROOT), **kwargs)
@@ -104,6 +166,40 @@ class SigaeHandler(SimpleHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/api/health":
             self.send_json({"status": "ok", "service": "SIGAE"})
+            return
+        if path == "/api/cloud-status":
+            self.send_json({"postgres": cloud_enabled()})
+            return
+        if path == "/api/schools":
+            if not cloud_enabled():
+                self.send_json({"error": "Supabase/PostgreSQL não configurado."}, 503)
+                return
+            with pg_connect() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT id, nome, codigo_inep, endereco, etapas, ativa
+                    FROM public.escolas
+                    ORDER BY nome
+                    """
+                ).fetchall()
+            self.send_json([map_school(row) for row in rows])
+            return
+        if path == "/api/school-users":
+            if not cloud_enabled():
+                self.send_json({"error": "Supabase/PostgreSQL não configurado."}, 503)
+                return
+            with pg_connect() as conn:
+                rows = conn.execute(
+                    """
+                    SELECT u.id, u.nome, u.cpf, u.ativo, c.cargo::text, e.nome AS escola
+                    FROM public.usuarios u
+                    JOIN public.usuarios_cargos c ON c.usuario_id = u.id
+                    LEFT JOIN public.escolas e ON e.id = c.escola_id
+                    WHERE c.cargo IN ('diretor', 'secretaria_escolar')
+                    ORDER BY u.nome
+                    """
+                ).fetchall()
+            self.send_json([map_school_user(row) for row in rows])
             return
         if path == "/api/dashboard":
             schools = rows("SELECT name, students, teachers, attendance, approval, status FROM schools ORDER BY name")
@@ -151,6 +247,101 @@ class SigaeHandler(SimpleHTTPRequestHandler):
                 )
                 conn.execute("INSERT INTO audit_logs (actor, action, entity) VALUES (?, ?, ?)", ("API", "Registro criado", payload["type"]))
             self.send_json({"id": cursor.lastrowid, **payload}, 201)
+            return
+        if path == "/api/schools":
+            if not cloud_enabled():
+                self.send_json({"error": "Supabase/PostgreSQL não configurado."}, 503)
+                return
+            required = ["name"]
+            if not all(payload.get(field) for field in required):
+                self.send_json({"error": "Nome da escola é obrigatório."}, 400)
+                return
+            with pg_connect() as conn:
+                municipio_id = ensure_default_municipio(conn)
+                row = conn.execute(
+                    """
+                    INSERT INTO public.escolas (municipio_id, nome, codigo_inep, endereco, etapas, ativa)
+                    VALUES (%s, %s, NULLIF(%s, ''), %s::jsonb, %s, true)
+                    RETURNING id, nome, codigo_inep, endereco, etapas, ativa
+                    """,
+                    (
+                        municipio_id,
+                        payload["name"].strip(),
+                        "".join(char for char in payload.get("inep", "") if char.isdigit()),
+                        json.dumps({"regiao": payload.get("city", "").strip()}),
+                        [item.strip() for item in payload.get("stages", "").split(",") if item.strip()],
+                    ),
+                ).fetchone()
+                conn.commit()
+            self.send_json(map_school(row), 201)
+            return
+        if path == "/api/school-users":
+            if not cloud_enabled():
+                self.send_json({"error": "Supabase/PostgreSQL não configurado."}, 503)
+                return
+            cpf = "".join(char for char in payload.get("cpf", "") if char.isdigit())
+            name = payload.get("name", "").strip()
+            role = payload.get("role", "Diretor")
+            school_id = payload.get("schoolId")
+            if not name or len(cpf) != 11 or not school_id:
+                self.send_json({"error": "Nome, CPF e escola são obrigatórios."}, 400)
+                return
+            cargo = "diretor" if role == "Diretor" else "secretaria_escolar"
+            with pg_connect() as conn:
+                school = conn.execute("SELECT id, municipio_id FROM public.escolas WHERE id = %s", (school_id,)).fetchone()
+                if not school:
+                    self.send_json({"error": "Escola não encontrada."}, 404)
+                    return
+                user = conn.execute(
+                    """
+                    INSERT INTO public.usuarios (nome, cpf, municipio_id, escola_id, ativo)
+                    VALUES (%s, %s, %s, %s, true)
+                    ON CONFLICT (cpf) DO UPDATE
+                    SET nome = EXCLUDED.nome,
+                        municipio_id = EXCLUDED.municipio_id,
+                        escola_id = EXCLUDED.escola_id,
+                        ativo = true
+                    RETURNING id
+                    """,
+                    (name, cpf, school["municipio_id"], school["id"]),
+                ).fetchone()
+                conn.execute(
+                    """
+                    INSERT INTO public.usuarios_cargos (usuario_id, municipio_id, escola_id, cargo, ativo)
+                    VALUES (%s, %s, %s, %s::public.perfil_usuario, true)
+                    ON CONFLICT (usuario_id, municipio_id, escola_id, cargo) DO UPDATE
+                    SET ativo = true
+                    """,
+                    (user["id"], school["municipio_id"], school["id"], cargo),
+                )
+                conn.commit()
+            self.send_json({"ok": True}, 201)
+            return
+        self.send_json({"error": "Rota não encontrada"}, 404)
+
+    def do_PATCH(self):
+        path = urlparse(self.path).path
+        payload = self.read_json()
+        if path.startswith("/api/schools/"):
+            if not cloud_enabled():
+                self.send_json({"error": "Supabase/PostgreSQL não configurado."}, 503)
+                return
+            school_id = path.rsplit("/", 1)[-1]
+            with pg_connect() as conn:
+                row = conn.execute(
+                    """
+                    UPDATE public.escolas
+                    SET ativa = %s
+                    WHERE id = %s
+                    RETURNING id, nome, codigo_inep, endereco, etapas, ativa
+                    """,
+                    (bool(payload.get("active")), school_id),
+                ).fetchone()
+                conn.commit()
+            if not row:
+                self.send_json({"error": "Escola não encontrada."}, 404)
+                return
+            self.send_json(map_school(row))
             return
         self.send_json({"error": "Rota não encontrada"}, 404)
 

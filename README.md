@@ -18,6 +18,14 @@ python3 server.py
 
 Depois acesse `http://127.0.0.1:8000`.
 
+Opção com API salvando no Supabase/PostgreSQL:
+
+```bash
+DATABASE_URL="postgresql://..." python3 server.py
+```
+
+Com `DATABASE_URL` configurado, a aba Super Admin grava escolas, ativa/inativa unidades e cadastra diretores/secretárias diretamente no PostgreSQL do Supabase.
+
 O acesso usa CPF e senha de usuários cadastrados no backend local ou, em produção, no Supabase.
 
 ## Recursos implementados nesta versão

@@ -13,12 +13,9 @@ const students = [
 ];
 
 const records = JSON.parse(localStorage.getItem("sigaeRecords") || "[]");
-const savedSchools = JSON.parse(localStorage.getItem("sigaeSchools") || "[]");
-const schoolUsers = JSON.parse(localStorage.getItem("sigaeSchoolUsers") || "[]");
-if (savedSchools.length) {
-  schools = savedSchools;
-}
+let schoolUsers = [];
 let apiAvailable = false;
+let cloudStorageAvailable = false;
 let pendingLoginUser = null;
 
 const supabaseConfig = {
@@ -246,6 +243,12 @@ function renderSuperAdmin() {
   const activeCount = schools.filter((school) => school.active !== false).length;
   const inactiveCount = schools.length - activeCount;
   return `
+    ${cloudStorageAvailable ? "" : `
+      <section class="panel admin-cloud-warning">
+        <strong>Supabase/PostgreSQL não conectado</strong>
+        <span>Inicie o servidor com a variável DATABASE_URL para salvar escolas e usuários na nuvem.</span>
+      </section>
+    `}
     <section class="kpi-grid">
       <article class="kpi-card"><span>Escolas cadastradas</span><strong>${schools.length}</strong><small class="trend">${activeCount} ativas</small></article>
       <article class="kpi-card"><span>Escolas inativas</span><strong>${inactiveCount}</strong><small class="trend">Controle administrativo</small></article>
@@ -268,7 +271,7 @@ function renderSuperAdmin() {
               <td>${school.students || 0}</td>
               <td>${school.teachers || 0}</td>
               <td>${badge(school.active === false ? "Inativa" : "Ativo")}</td>
-              <td><button class="table-action school-status-toggle" data-school-index="${index}">${school.active === false ? "Ativar" : "Inativar"}</button></td>
+              <td><button class="table-action school-status-toggle" data-school-id="${school.id || ""}" data-school-index="${index}">${school.active === false ? "Ativar" : "Inativar"}</button></td>
             </tr>
           `).join("")}
         </tbody>
@@ -304,7 +307,7 @@ function renderSuperAdmin() {
           </label>
           <label>Escola
             <select name="school">
-              ${schools.map((school) => `<option>${school.name}</option>`).join("")}
+              ${schools.map((school) => `<option value="${school.id || ""}">${school.name}</option>`).join("")}
             </select>
           </label>
           <button class="primary-action" type="submit">Cadastrar usuário</button>
@@ -513,56 +516,78 @@ function setView(viewName) {
 }
 
 function saveAdminState() {
-  localStorage.setItem("sigaeSchools", JSON.stringify(schools));
-  localStorage.setItem("sigaeSchoolUsers", JSON.stringify(schoolUsers));
+  return cloudStorageAvailable;
 }
 
 function bindSuperAdminActions() {
   document.querySelectorAll(".school-status-toggle").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", async () => {
+      if (!cloudStorageAvailable || !button.dataset.schoolId) {
+        setView("superadmin");
+        return;
+      }
       const index = Number(button.dataset.schoolIndex);
-      schools[index].active = schools[index].active === false;
-      schools[index].status = schools[index].active ? "Regular" : "Inativa";
-      saveAdminState();
+      const active = schools[index].active === false;
+      const response = await fetch(`/api/schools/${button.dataset.schoolId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ active }),
+      });
+      if (response.ok) {
+        schools[index] = await response.json();
+      }
       setView("superadmin");
     });
   });
 
-  document.querySelector("#schoolAdminForm")?.addEventListener("submit", (event) => {
+  document.querySelector("#schoolAdminForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!cloudStorageAvailable) {
+      setView("superadmin");
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") || "").trim();
     if (!name) return;
-    schools.push({
-      name,
-      inep: String(form.get("inep") || "").replace(/\D/g, ""),
-      city: String(form.get("city") || "").trim(),
-      stages: String(form.get("stages") || "").trim(),
-      students: 0,
-      teachers: 0,
-      attendance: 0,
-      approval: 0,
-      status: "Regular",
-      active: true,
+    const response = await fetch("/api/schools", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        inep: String(form.get("inep") || "").replace(/\D/g, ""),
+        city: String(form.get("city") || "").trim(),
+        stages: String(form.get("stages") || "").trim(),
+      }),
     });
-    saveAdminState();
+    if (response.ok) {
+      schools.push(await response.json());
+    }
     setView("superadmin");
   });
 
-  document.querySelector("#schoolUserAdminForm")?.addEventListener("submit", (event) => {
+  document.querySelector("#schoolUserAdminForm")?.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!cloudStorageAvailable) {
+      setView("superadmin");
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") || "").trim();
     const cpf = String(form.get("cpf") || "").replace(/\D/g, "").slice(0, 11);
     if (!name || cpf.length !== 11) return;
-    schoolUsers.push({
-      name,
-      cpf,
-      role: String(form.get("role") || "Diretor"),
-      school: String(form.get("school") || ""),
-      active: true,
+    const response = await fetch("/api/school-users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name,
+        cpf,
+        role: String(form.get("role") || "Diretor"),
+        schoolId: String(form.get("school") || ""),
+      }),
     });
-    saveAdminState();
+    if (response.ok) {
+      await hydrateAdminFromApi();
+    }
     setView("superadmin");
   });
 
@@ -820,12 +845,31 @@ profileSelect.addEventListener("change", (event) => {
   setView(profileToView[profile] || "dashboard");
 });
 
+async function hydrateAdminFromApi() {
+  try {
+    const [schoolsResponse, usersResponse] = await Promise.all([
+      fetch("/api/schools"),
+      fetch("/api/school-users"),
+    ]);
+    if (!schoolsResponse.ok || !usersResponse.ok) {
+      cloudStorageAvailable = false;
+      return;
+    }
+    schools = await schoolsResponse.json();
+    schoolUsers = await usersResponse.json();
+    cloudStorageAvailable = true;
+  } catch (error) {
+    cloudStorageAvailable = false;
+  }
+}
+
 async function hydrateFromApi() {
+  await hydrateAdminFromApi();
   try {
     const response = await fetch("/api/dashboard");
     if (!response.ok) return;
     const data = await response.json();
-    if (Array.isArray(data.schools) && !savedSchools.length) {
+    if (Array.isArray(data.schools) && !cloudStorageAvailable) {
       schools = data.schools;
       apiAvailable = true;
     }

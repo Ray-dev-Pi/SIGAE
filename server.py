@@ -309,21 +309,21 @@ class SigaeHandler(SimpleHTTPRequestHandler):
                 self.send_json({"error": "Supabase/PostgreSQL não configurado."}, 503)
                 return
             with pg_connect() as conn:
-                rows = conn.execute(
+                school_rows = conn.execute(
                     """
                     SELECT id, nome, codigo_inep, endereco, etapas, ativa
                     FROM public.escolas
                     ORDER BY nome
                     """
                 ).fetchall()
-            self.send_json([map_school(row) for row in rows])
+            self.send_json([map_school(row) for row in school_rows])
             return
         if path == "/api/school-users":
             if not cloud_enabled():
                 self.send_json({"error": "Supabase/PostgreSQL não configurado."}, 503)
                 return
             with pg_connect() as conn:
-                rows = conn.execute(
+                school_user_rows = conn.execute(
                     """
                     SELECT u.id, u.nome, u.cpf, u.ativo, c.cargo::text, e.nome AS escola
                     FROM public.usuarios u
@@ -333,7 +333,7 @@ class SigaeHandler(SimpleHTTPRequestHandler):
                     ORDER BY u.nome
                     """
                 ).fetchall()
-            self.send_json([map_school_user(row) for row in rows])
+            self.send_json([map_school_user(row) for row in school_user_rows])
             return
         if path == "/api/global-stats":
             if not cloud_enabled():

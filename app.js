@@ -16,6 +16,7 @@ const records = JSON.parse(localStorage.getItem("sigaeRecords") || "[]");
 let schoolUsers = [];
 let registrationInvites = [];
 let lastInviteLink = "";
+let lastInviteError = "";
 let apiAvailable = false;
 let cloudStorageAvailable = false;
 let pendingLoginUser = null;
@@ -325,6 +326,12 @@ function renderSuperAdmin() {
           <button class="secondary-action" id="copyInviteLinkButton" type="button">Copiar link</button>
         </div>
       ` : ""}
+      ${lastInviteError ? `
+        <div class="form-alert inline-alert" role="alert">
+          <span aria-hidden="true">!</span>
+          <p>${lastInviteError}</p>
+        </div>
+      ` : ""}
       <table class="data-table invite-table">
         <thead><tr><th>Cargo</th><th>Destinatário</th><th>Status</th><th>Validade</th><th>Link</th></tr></thead>
         <tbody>
@@ -613,9 +620,11 @@ function bindSuperAdminActions() {
       button.textContent = "Gerando...";
       try {
         await createInvite(role, new FormData(event.currentTarget));
+        lastInviteError = "";
         event.currentTarget.reset();
       } catch (error) {
-        lastInviteLink = error.message || "Não foi possível gerar o convite.";
+        lastInviteLink = "";
+        lastInviteError = error.message || "Não foi possível gerar o convite.";
       } finally {
         button.disabled = false;
         button.textContent = role === "gestor_municipal" ? "Gerar link da Secretaria" : "Gerar link do Diretor";
@@ -852,6 +861,7 @@ async function createInvite(role, form) {
     if (response.ok) {
       const invite = await response.json();
       lastInviteLink = invite.link;
+      lastInviteError = "";
       await hydrateInvites();
       return invite;
     }
@@ -886,6 +896,7 @@ async function createInvite(role, form) {
     createdAt: insertResponse.data.criado_em,
   };
   lastInviteLink = invite.link;
+  lastInviteError = "";
   registrationInvites = [invite, ...registrationInvites];
   return invite;
 }
@@ -1055,6 +1066,7 @@ async function showInviteRegistration(token) {
   inviteScreen.hidden = false;
   document.body.classList.remove("is-authenticated");
   inviteFeedback.textContent = "Validando convite...";
+  inviteForm.querySelector("button[type='submit']").disabled = false;
   hideInviteAlert();
   try {
     const invite = await fetchInvite(token);
@@ -1327,6 +1339,11 @@ async function hydrateFromApi() {
 
 renderSidebars();
 hydrateFromApi().finally(() => {
+  const inviteToken = new URLSearchParams(window.location.search).get("invite");
+  if (inviteToken) {
+    showInviteRegistration(inviteToken);
+    return;
+  }
   const savedSession = JSON.parse(sessionStorage.getItem("sigaeSession") || "null");
   if (savedSession) {
     completeLogin(savedSession, savedSession.activeRole);

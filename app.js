@@ -611,23 +611,22 @@ function normalizeUser(user) {
 async function authenticateUser(cpf, password) {
   if (supabaseConfig.url && supabaseConfig.anonKey && window.supabase) {
     const client = window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey);
-    const userResponse = await client
-      .from(supabaseConfig.tables.users)
-      .select("id, nome, email, cpf")
-      .eq("cpf", cpf)
-      .single();
-    if (userResponse.error) throw new Error("CPF não encontrado.");
-    const result = await client.auth.signInWithPassword({ email: userResponse.data.email, password });
+    const userResponse = await client.rpc("login_usuario_por_cpf", { login_cpf: cpf });
+    if (userResponse.error) throw new Error(userResponse.error.message || "CPF não encontrado.");
+    const loginUser = Array.isArray(userResponse.data) ? userResponse.data[0] : userResponse.data;
+    if (!loginUser?.email) throw new Error("CPF não encontrado.");
+
+    const result = await client.auth.signInWithPassword({ email: loginUser.email, password });
     if (result.error) throw new Error("Senha incorreta para o CPF informado.");
     const roleResponse = await client
       .from(supabaseConfig.tables.roles)
       .select("cargo, escola")
-      .eq("usuario_id", userResponse.data.id);
+      .eq("usuario_id", loginUser.id);
     if (roleResponse.error) throw new Error(roleResponse.error.message);
     return normalizeUser({
-      name: userResponse.data.nome || result.data.user.user_metadata?.name || userResponse.data.email,
-      email: userResponse.data.email,
-      cpf: userResponse.data.cpf,
+      name: loginUser.nome || result.data.user.user_metadata?.name || loginUser.email,
+      email: loginUser.email,
+      cpf: loginUser.cpf,
       roles: roleResponse.data.map((item) => item.cargo),
       school: roleResponse.data[0]?.escola,
     });
